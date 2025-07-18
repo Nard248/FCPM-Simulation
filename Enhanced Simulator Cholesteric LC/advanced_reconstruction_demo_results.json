@@ -1,0 +1,54 @@
+{
+  "fitted_params": {
+    "segments": [
+      {
+        "range": [
+          0,
+          90
+        ],
+        "pitch": 2.0000696618002607,
+        "phase": 0.00024790988965761173,
+        "amplitude": 0.9855057016940778,
+        "offset": 0.0021835881245076023
+      },
+      {
+        "range": [
+          90,
+          110
+        ],
+        "pitch": 1.9938136947083922,
+        "phase": -0.09658290466528743,
+        "amplitude": 0.9866311484536863,
+        "offset": 0.0016753172166396534
+      }
+    ]
+  },
+  "defect_detections": [
+    {
+      "type": "stripe_discontinuity",
+      "position": [
+        90,
+        41
+      ],
+      "width": 2,
+      "confidence": 0.2
+    }
+  ],
+  "reconstruction_method": "adaptive_fitting",
+  "error_metrics": {
+    "mse": 0.00012446623938038406,
+    "rmse": 0.011156443850097756,
+    "mae": 0.006237066364719616,
+    "max_error": 0.039323270917219544,
+    "r_squared": 0.9990534126129386
+  },
+  "metadata": {
+    "preprocessing": "robust",
+    "profile_method": "weighted_average",
+    "n_defects_detected": 1,
+    "grid_size": [
+      110,
+      55
+    ]
+  }
+}

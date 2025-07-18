@@ -1,0 +1,28 @@
+{
+  "simulation_params": {
+    "grid_size": [
+      110,
+      55
+    ],
+    "physical_size": [
+      11.0,
+      6.5
+    ],
+    "pitch": 2.0,
+    "noise_level": 0.1,
+    "noise_type": "gaussian"
+  },
+  "defects": {
+    "include_defects": false,
+    "defect_types": [],
+    "defect_density": 0.1,
+    "defect_locations": []
+  },
+  "statistics": {
+    "mean_intensity": 0.37612413159822383,
+    "std_intensity": 0.36356931317253954,
+    "min_intensity": 3.104505681525288e-08,
+    "max_intensity": 1.0,
+    "n_defects": 0
+  }
+}

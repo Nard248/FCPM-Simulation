@@ -1,0 +1,31 @@
+{
+  "simulation_params": {
+    "grid_size": [
+      110,
+      55
+    ],
+    "physical_size": [
+      11.0,
+      6.5
+    ],
+    "pitch": 2.0,
+    "noise_level": 0.1,
+    "noise_type": "gaussian"
+  },
+  "defects": {
+    "include_defects": true,
+    "defect_types": [
+      "dislocation_b_half",
+      "dislocation_b_full"
+    ],
+    "defect_density": 0.2,
+    "defect_locations": []
+  },
+  "statistics": {
+    "mean_intensity": 0.37670092003799704,
+    "std_intensity": 0.3639537612241103,
+    "min_intensity": 3.048590345316883e-08,
+    "max_intensity": 1.0,
+    "n_defects": 0
+  }
+}

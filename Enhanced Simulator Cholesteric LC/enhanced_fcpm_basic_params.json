@@ -1,0 +1,12 @@
+{
+  "n_z": 110,
+  "n_x": 55,
+  "z_size": 11.0,
+  "x_size": 6.5,
+  "pitch": 2.0,
+  "noise_level": 0.1,
+  "noise_type": "gaussian",
+  "include_defects": false,
+  "defect_types": [],
+  "defect_density": 0.1
+}

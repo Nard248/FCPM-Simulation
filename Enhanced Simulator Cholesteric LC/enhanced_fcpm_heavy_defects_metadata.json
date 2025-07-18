@@ -1,0 +1,51 @@
+{
+  "simulation_params": {
+    "grid_size": [
+      110,
+      55
+    ],
+    "physical_size": [
+      11.0,
+      6.5
+    ],
+    "pitch": 2.0,
+    "noise_level": 0.12,
+    "noise_type": "gaussian"
+  },
+  "defects": {
+    "include_defects": true,
+    "defect_types": [
+      "dislocation_b_half",
+      "dislocation_b_full",
+      "tau_disclination",
+      "lambda_disclination",
+      "kink"
+    ],
+    "defect_density": 0.3,
+    "defect_locations": [
+      {
+        "type": "tau_disclination",
+        "position": [
+          36,
+          41
+        ],
+        "winding_number": 0.5
+      },
+      {
+        "type": "kink",
+        "position": [
+          81,
+          20
+        ],
+        "length": 20
+      }
+    ]
+  },
+  "statistics": {
+    "mean_intensity": 0.3642465572245351,
+    "std_intensity": 0.3590004125787835,
+    "min_intensity": 2.916735489817211e-08,
+    "max_intensity": 1.0,
+    "n_defects": 2
+  }
+}
