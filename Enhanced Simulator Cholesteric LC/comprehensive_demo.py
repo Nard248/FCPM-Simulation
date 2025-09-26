@@ -566,52 +566,75 @@ def generate_summary_report(demo_results):
     print("DEMO COMPLETED SUCCESSFULLY")
     print("="*60)
 
+
 def main():
     """Main demonstration script"""
-    print("FCPM SIMULATION AND RECONSTRUCTION SYSTEM")
+    print("FCMP SIMULATION AND RECONSTRUCTION SYSTEM")
     print("Comprehensive Demonstration")
-    print("="*60)
-    
+    print("=" * 60)
+
     # Create output directory
     demo_dir = create_demo_directory()
     print(f"Results will be saved to: {demo_dir}")
-    
+
     # Store all results
     demo_results = {}
-    
+
     try:
-        # Run all demonstrations
+        # Run corrected simulation first
+        print("\n🔧 Running corrected simulation with proper periodicity...")
+        demo_results['corrected'] = demo_corrected_simulation()
+
+        # Run other demonstrations
         demo_results['basic'] = demo_basic_functionality()
         demo_results['defects'] = demo_defect_simulation()
         demo_results['methods'] = demo_reconstruction_methods()
         demo_results['sensitivity'] = demo_parameter_sensitivity()
         demo_results['validation'] = demo_validation()
-        
+
         # Generate comprehensive report
         generate_summary_report(demo_results)
-        
-        # Save summary data
-        summary_file = demo_dir / "demo_summary.json"
-        with open(summary_file, 'w') as f:
-            # Convert results to JSON-serializable format
-            json_results = {}
-            for key, value in demo_results.items():
-                if key == 'basic':
-                    json_results[key] = {'completed': True}
-                elif key in ['defects', 'methods', 'sensitivity', 'validation']:
-                    json_results[key] = {'completed': True, 'details': str(type(value))}
-            
-            json.dump(json_results, f, indent=2)
-        
-        print(f"\nDemo summary saved to: {summary_file}")
-        
+
     except Exception as e:
         print(f"\nDemo encountered an error: {e}")
-        print("This may be due to missing dependencies or import issues.")
-        print("Make sure all required modules are available.")
         return False
-    
+
     return True
+
+
+def demo_corrected_simulation():
+    """Demonstrate corrected simulation and reconstruction"""
+    print("\n" + "=" * 60)
+    print("DEMO: CORRECTED SIMULATION WITH PROPER PERIODICITY")
+    print("=" * 60)
+
+    # Create corrected simulation
+    params = SimulationParams(
+        pitch=2.0,
+        noise_level=0.08,  # Reduced noise
+        include_defects=False  # Clean data first
+    )
+
+    simulator = EnhancedFCPMSimulator(params)
+    intensity_data = simulator.simulate()
+
+    print(f"Generated corrected pattern: {intensity_data.shape}")
+    print(f"Intensity range: [{np.min(intensity_data):.3f}, {np.max(intensity_data):.3f}]")
+
+    # Show simulation results
+    simulator.plot_results(show_defects=False)
+
+    # Corrected reconstruction
+    reconstructor = AdvancedFCPMReconstructor(intensity_data)
+    results = reconstructor.reconstruct_director_corrected(method='corrected_inversion')
+
+    print(f"Reconstruction RMSE: {results.error_metrics['rmse']:.4f}")
+    print(f"R²: {results.error_metrics['r_squared']:.4f}")
+
+    # Show corrected reconstruction
+    reconstructor.plot_corrected_reconstruction()
+
+    return simulator, reconstructor
 
 if __name__ == "__main__":
     success = main()

@@ -111,22 +111,24 @@ class EnhancedFCPMSimulator:
             raise ValueError(f"Unknown preset: {preset_name}. Available: {list(presets.keys())}")
             
         return cls(presets[preset_name])
-    
+
     def generate_base_pattern(self) -> np.ndarray:
         """Generate base FCPM intensity pattern without defects"""
         # Create coordinate arrays
         z = np.linspace(0, self.params.z_size, self.params.n_z)
-        
-        # Generate intensity using cos^4 relationship
-        theta = 2 * np.pi * z / self.params.pitch + self.params.phase_offset
-        intensity_1d = np.cos(theta)**4
-        
+
+        # FIX: Correct periodicity for pseudo-vector nature
+        # Director completes 2π rotation, but intensity modulates with π period
+        theta = np.pi * z / (self.params.pitch / 2)  # π period instead of 2π
+
+        intensity_1d = np.cos(theta) ** 4
+
         # Apply contrast enhancement
         intensity_1d = self._enhance_contrast(intensity_1d)
-        
+
         # Create 2D pattern by repeating along X
         intensity_2d = np.tile(intensity_1d.reshape(-1, 1), (1, self.params.n_x))
-        
+
         return intensity_2d
     
     def _enhance_contrast(self, intensity: np.ndarray) -> np.ndarray:
@@ -135,35 +137,44 @@ class EnhancedFCPMSimulator:
             # Apply power law transformation
             intensity = np.power(intensity, 1.0/self.params.contrast)
         return intensity
-    
+
     def add_noise(self, intensity: np.ndarray) -> np.ndarray:
         """Add different types of noise to the intensity pattern"""
         if self.params.noise_level <= 0:
             return intensity
-            
+
         if self.params.noise_type == 'gaussian':
+            # FIX: Reduce horizontal noise variation to 0.9-1.0 range
+            noise_level = self.params.noise_level * 0.5  # Reduce noise
+
+            # Add horizontal variation (0.95-1.0 as requested)
+            horizontal_variation = np.random.uniform(0.95, 1.0, intensity.shape[1])
+
+            # Apply horizontal variation
+            for i in range(intensity.shape[0]):
+                intensity[i, :] *= horizontal_variation
+
+            # Add gentle gaussian noise
             noise = np.random.normal(0, 1, intensity.shape)
-            scaled_noise = noise * (intensity * self.params.noise_level)
+            scaled_noise = noise * (intensity * noise_level)
             noisy_intensity = intensity + scaled_noise
-            
+
         elif self.params.noise_type == 'poisson':
-            # Scale intensity for Poisson noise simulation
-            scaled_intensity = intensity * 100  # Scale to reasonable photon counts
+            # Keep existing poisson code but reduce intensity
+            scaled_intensity = intensity * 50  # Reduced from 100
             noisy_scaled = np.random.poisson(scaled_intensity)
-            noisy_intensity = noisy_scaled / 100.0
-            
+            noisy_intensity = noisy_scaled / 50.0
+
         elif self.params.noise_type == 'salt_pepper':
+            # Keep existing salt_pepper code
             noisy_intensity = intensity.copy()
-            # Salt noise (white pixels)
-            salt_coords = np.random.random(intensity.shape) < self.params.noise_level/2
+            salt_coords = np.random.random(intensity.shape) < self.params.noise_level / 2
             noisy_intensity[salt_coords] = 1.0
-            # Pepper noise (black pixels)
-            pepper_coords = np.random.random(intensity.shape) < self.params.noise_level/2
+            pepper_coords = np.random.random(intensity.shape) < self.params.noise_level / 2
             noisy_intensity[pepper_coords] = 0.0
-            
         else:
             raise ValueError(f"Unknown noise type: {self.params.noise_type}")
-        
+
         # Ensure values stay in valid range
         return np.clip(noisy_intensity, self.params.intensity_min, self.params.intensity_max)
     

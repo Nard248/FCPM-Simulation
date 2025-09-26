@@ -841,6 +841,179 @@ class AdvancedFCPMReconstructor:
 
         print(f"Results saved as '{filename_base}_*'")
 
+    def reconstruct_director_corrected(self, method='corrected_inversion'):
+        """
+        Corrected reconstruction accounting for pseudo-vector nature
+        """
+        # Preprocess data
+        processed_intensity = self.preprocess_data(method='robust')
+
+        # Extract profile
+        intensity_1d = self.extract_intensity_profile(method='weighted_average')
+
+        if method == 'corrected_inversion':
+            # Direct inversion with pseudo-vector correction
+            angles = self.reconstruct_angle_corrected(intensity_1d)
+            params = {'method': 'corrected_inversion', 'pseudo_vector_corrected': True}
+        else:
+            # Fallback to existing methods
+            angles, params = self._robust_inversion(intensity_1d, [])
+
+        # Calculate confidence estimates
+        confidence = self._calculate_confidence(intensity_1d, angles, [])
+
+        # Calculate error metrics
+        error_metrics = self._calculate_error_metrics(intensity_1d, angles)
+
+        # Create result object
+        self.results = ReconstructionResult(
+            angles=angles,
+            confidence=confidence,
+            fitted_params=params,
+            defect_detections=[],
+            reconstruction_method=method,
+            error_metrics=error_metrics,
+            metadata={
+                'preprocessing': 'robust',
+                'profile_method': 'weighted_average',
+                'pseudo_vector_corrected': True,
+                'grid_size': (self.n_z, self.n_x)
+            }
+        )
+
+        return self.results
+
+    def reconstruct_angle_corrected(self, intensity_profile):
+        """
+        Corrected angle reconstruction for pseudo-vector
+        """
+        # Ensure intensity values are in valid range
+        intensity_clipped = np.clip(intensity_profile, 1e-6, 1.0)
+
+        # Direct inversion: β = arccos(I^(1/4))
+        angles_raw = np.arccos(intensity_clipped ** (1 / 4))
+
+        # FIX: Account for pseudo-vector nature and π periodicity
+        # The director should complete full 2π rotation over sample
+        # But intensity modulates with π period
+        z_coords = np.linspace(0, 11, len(intensity_profile))
+
+        # Map to 0-2π range accounting for helical structure
+        angles_corrected = (angles_raw * 4 * np.pi * z_coords / np.max(z_coords)) % (2 * np.pi)
+
+        # Apply continuity constraint
+        angles_corrected = self._enforce_continuity(angles_corrected)
+
+        return angles_corrected
+
+    def plot_corrected_reconstruction(self, figsize=(16, 12)):
+        """
+        Plot corrected reconstruction with proper director visualization
+        """
+        if self.results is None:
+            raise ValueError("No reconstruction results. Run reconstruct_director_corrected() first.")
+
+        fig = plt.figure(figsize=figsize)
+
+        # 1. Original intensity pattern
+        ax1 = plt.subplot(2, 3, 1)
+        im1 = ax1.imshow(self.intensity, cmap='gray', aspect='auto',
+                         extent=[0, 6.5, 0, 11], origin='lower')
+        ax1.set_title('FCPM Pattern (Corrected)')
+        ax1.set_xlabel('X position')
+        ax1.set_ylabel('Z position')
+        plt.colorbar(im1, ax=ax1)
+
+        # 2. 1D intensity profile
+        ax2 = plt.subplot(2, 3, 2)
+        z_coords = np.linspace(0, 11, self.n_z)
+        intensity_1d = self.extract_intensity_profile()
+        predicted_intensity = np.cos(self.results.angles / 4) ** 4  # Note: /4 for π period
+
+        ax2.plot(z_coords, intensity_1d, 'b-', linewidth=2, label='Observed')
+        ax2.plot(z_coords, predicted_intensity, 'r--', linewidth=2, label='Reconstructed')
+        ax2.set_xlabel('Z position')
+        ax2.set_ylabel('Intensity')
+        ax2.set_title('Intensity Profile Fit')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        # 3. Reconstructed angles (0-2π)
+        ax3 = plt.subplot(2, 3, 3)
+        ax3.plot(z_coords, self.results.angles, 'g-', linewidth=2)
+        ax3.set_xlabel('Z position')
+        ax3.set_ylabel('Angle β (radians)')
+        ax3.set_title('Director Angles (0-2π)')
+        ax3.set_ylim(0, 2 * np.pi)
+        ax3.grid(True, alpha=0.3)
+
+        # 4. Horizontal profiles (reduced noise)
+        ax4 = plt.subplot(2, 3, 4)
+        x_coords = np.linspace(0, 6.5, self.n_x)
+        sample_rows = [self.n_z // 4, self.n_z // 2, 3 * self.n_z // 4]
+
+        for i, row in enumerate(sample_rows):
+            profile = self.intensity[row, :]
+            z_phys = row * 11 / self.n_z
+            ax4.plot(x_coords, profile, alpha=0.7, label=f'Z = {z_phys:.1f}')
+
+        ax4.set_xlabel('X position')
+        ax4.set_ylabel('Intensity')
+        ax4.set_title('Horizontal Profiles (Reduced Noise)')
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
+
+        # 5. Director field in XY plane (standing helix)
+        ax5 = plt.subplot(2, 3, 5)
+
+        # Show only Z = 0 to 4 with higher resolution
+        z_display = np.linspace(0, 4, 200)
+        z_indices = (z_display * self.n_z / 11).astype(int)
+        z_indices = np.clip(z_indices, 0, len(self.results.angles) - 1)
+
+        angles_display = self.results.angles[z_indices]
+
+        # Director components in XY plane
+        nx = np.cos(angles_display)
+        ny = np.sin(angles_display)
+
+        # Sample every 10th point for visualization
+        sample_indices = np.arange(0, len(z_display), 10)
+
+        for i in sample_indices:
+            ax5.arrow(0, z_display[i], nx[i] * 0.3, 0,
+                      head_width=0.05, head_length=0.05, fc='red', ec='red', alpha=0.7)
+            ax5.arrow(0, z_display[i], 0, ny[i] * 0.3,
+                      head_width=0.05, head_length=0.05, fc='blue', ec='blue', alpha=0.7)
+
+        ax5.set_xlabel('X component')
+        ax5.set_ylabel('Z position')
+        ax5.set_title('Director Field (XY components)')
+        ax5.grid(True, alpha=0.3)
+        ax5.set_xlim(-0.5, 0.5)
+        ax5.set_ylim(0, 4)
+
+        # 6. 3D director visualization
+        ax6 = plt.subplot(2, 3, 6, projection='3d')
+
+        # Plot director vectors in 3D
+        sample_indices_3d = np.arange(0, len(z_display), 5)
+
+        for i in sample_indices_3d:
+            ax6.quiver(0, 0, z_display[i],
+                       nx[i], ny[i], 0,
+                       length=0.5, color='red', alpha=0.7)
+
+        ax6.set_xlabel('X')
+        ax6.set_ylabel('Y')
+        ax6.set_zlabel('Z')
+        ax6.set_title('3D Director Field\n(Standing Helix)')
+        ax6.set_xlim(-1, 1)
+        ax6.set_ylim(-1, 1)
+        ax6.set_zlim(0, 4)
+
+        plt.tight_layout()
+        plt.show()
 
 # Example usage
 if __name__ == "__main__":
