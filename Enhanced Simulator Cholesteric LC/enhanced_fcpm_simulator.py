@@ -10,7 +10,7 @@ import json
 class SimulationParams:
     """Parameters for FCPM simulation"""
     # Grid parameters
-    n_z: int = 110  # Points along Z (vertical)
+    n_z: int = 1100  # Points along Z (vertical)
     n_x: int = 55   # Points along X (horizontal)
     z_size: float = 11.0  # Physical size in Z direction
     x_size: float = 6.5   # Physical size in X direction
@@ -138,13 +138,37 @@ class EnhancedFCPMSimulator:
             intensity = np.power(intensity, 1.0/self.params.contrast)
         return intensity
 
+    def _smooth_intensity_profile(self, intensity: np.ndarray) -> np.ndarray:
+        """
+        Apply smoothing to reduce sharp intensity variations
+        Addresses issues 2 and 3: sharp variations and overly sharp high intensities
+        """
+        # Apply Gaussian smoothing along z-direction to smooth the intensity profile
+        # Use different sigma for different intensity levels to preserve features
+        # while smoothing sharp peaks
+
+        smoothed = gaussian_filter(intensity, sigma=(1.5, 0.3), mode='reflect')
+
+        # Additional smoothing for high intensity regions to reduce sharpness
+        # Identify high intensity regions (> 0.7)
+        high_intensity_mask = intensity > 0.7
+
+        # Apply stronger smoothing to high intensity regions
+        if np.any(high_intensity_mask):
+            extra_smoothed = gaussian_filter(intensity, sigma=(2.5, 0.3), mode='reflect')
+            # Blend based on intensity level
+            blend_factor = np.clip((intensity - 0.7) / 0.3, 0, 1)
+            smoothed = smoothed * (1 - blend_factor) + extra_smoothed * blend_factor
+
+        return smoothed
+
     def add_noise(self, intensity: np.ndarray) -> np.ndarray:
         """Add different types of noise to the intensity pattern"""
         if self.params.noise_level <= 0:
             return intensity
 
         if self.params.noise_type == 'gaussian':
-            # FIX: Reduce horizontal noise variation to 0.9-1.0 range
+            # FIX: Add noise to ALL regions including zero-intensity lines
             noise_level = self.params.noise_level * 0.5  # Reduce noise
 
             # Add horizontal variation (0.95-1.0 as requested)
@@ -154,10 +178,15 @@ class EnhancedFCPMSimulator:
             for i in range(intensity.shape[0]):
                 intensity[i, :] *= horizontal_variation
 
-            # Add gentle gaussian noise
-            noise = np.random.normal(0, 1, intensity.shape)
-            scaled_noise = noise * (intensity * noise_level)
-            noisy_intensity = intensity + scaled_noise
+            # FIX: Add both multiplicative AND additive noise
+            # This ensures zero-intensity regions also get noise
+            multiplicative_noise = np.random.normal(0, 1, intensity.shape)
+            scaled_mult_noise = multiplicative_noise * (intensity * noise_level)
+
+            # Add small additive noise component (especially for low-intensity regions)
+            additive_noise = np.random.normal(0, noise_level * 0.05, intensity.shape)
+
+            noisy_intensity = intensity + scaled_mult_noise + additive_noise
 
         elif self.params.noise_type == 'poisson':
             # Keep existing poisson code but reduce intensity
@@ -182,18 +211,22 @@ class EnhancedFCPMSimulator:
         """Main simulation method"""
         # Generate base pattern
         intensity = self.generate_base_pattern()
-        
+
         # Add defects if requested
         if self.params.include_defects:
             intensity = self._add_defects(intensity)
-        
+
         # Add noise
         intensity = self.add_noise(intensity)
-        
+
+        # FIX: Apply smoothing to reduce sharp intensity variations
+        # This addresses issues 2 and 3 (sharp variations and high intensity peaks)
+        intensity = self._smooth_intensity_profile(intensity)
+
         # Store results
         self.intensity_data = intensity
         self._generate_metadata()
-        
+
         return intensity
     
     def _add_defects(self, intensity: np.ndarray) -> np.ndarray:
@@ -552,30 +585,176 @@ class EnhancedFCPMSimulator:
         # Print metadata
         self._print_simulation_summary()
     
+    def plot_3d_director_field(self, n_z_planes=10, n_x_grid=15, n_y_grid=15, figsize=(16, 12)):
+        """
+        Visualize 3D director field showing orientation vectors in x-y planes along z-axis
+
+        This addresses requirement 4: Show orientation vectors for x,y planes along z axis.
+        For cholesteric liquid crystals, the director field rotates helically along z.
+
+        Args:
+            n_z_planes: Number of z-planes to visualize
+            n_x_grid: Number of grid points in x direction
+            n_y_grid: Number of grid points in y direction
+            figsize: Figure size
+        """
+        if self.intensity_data is None:
+            raise ValueError("No simulation data. Run simulate() first.")
+
+        # Create z-planes to visualize
+        z_indices = np.linspace(0, self.params.n_z - 1, n_z_planes, dtype=int)
+        z_coords = z_indices * self.params.z_size / self.params.n_z
+
+        # Create x-y grid for each plane
+        x_grid = np.linspace(0, self.params.x_size, n_x_grid)
+        y_grid = np.linspace(0, self.params.x_size, n_y_grid)
+        X, Y = np.meshgrid(x_grid, y_grid)
+
+        # Calculate director angles at each z position
+        # For cholesteric LC: β(z) = 2π*z/pitch + phase_offset
+        angles = 2 * np.pi * z_coords / self.params.pitch + self.params.phase_offset
+
+        # Create figure with multiple subplots
+        fig = plt.figure(figsize=figsize)
+
+        # 3D plot showing all planes
+        ax1 = fig.add_subplot(2, 2, 1, projection='3d')
+
+        # Plot director field in each z-plane
+        for i, (z_idx, z_pos, angle) in enumerate(zip(z_indices, z_coords, angles)):
+            # Director components in x-y plane
+            # The director rotates in the x-y plane with angle β
+            nx = np.cos(angle) * np.ones_like(X)
+            ny = np.sin(angle) * np.ones_like(Y)
+            nz = np.zeros_like(X)
+
+            # Color based on z position
+            color = plt.cm.viridis(i / len(z_indices))
+
+            # Plot quiver for this plane
+            Z_plane = z_pos * np.ones_like(X)
+            ax1.quiver(X, Y, Z_plane, nx, ny, nz,
+                      length=0.3, color=color, alpha=0.7,
+                      arrow_length_ratio=0.3, linewidth=1.5)
+
+        ax1.set_xlabel('X position')
+        ax1.set_ylabel('Y position')
+        ax1.set_zlabel('Z position')
+        ax1.set_title('3D Director Field\n(Cholesteric Helix)')
+        ax1.set_xlim(0, self.params.x_size)
+        ax1.set_ylim(0, self.params.x_size)
+        ax1.set_zlim(0, self.params.z_size)
+
+        # 2D projection showing director rotation along z
+        ax2 = fig.add_subplot(2, 2, 2)
+
+        # Show director angle as function of z
+        z_fine = np.linspace(0, self.params.z_size, 200)
+        angles_fine = 2 * np.pi * z_fine / self.params.pitch + self.params.phase_offset
+
+        # Plot director components
+        ax2.plot(z_fine, np.cos(angles_fine), 'r-', linewidth=2, label='nx (x-component)')
+        ax2.plot(z_fine, np.sin(angles_fine), 'b-', linewidth=2, label='ny (y-component)')
+        ax2.axhline(0, color='k', linestyle='--', alpha=0.3)
+
+        # Mark the sampled planes
+        for z_pos in z_coords:
+            ax2.axvline(z_pos, color='gray', alpha=0.3, linestyle=':')
+
+        ax2.set_xlabel('Z position')
+        ax2.set_ylabel('Director Component')
+        ax2.set_title('Director Components vs Z')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        # Individual x-y plane views
+        ax3 = fig.add_subplot(2, 2, 3)
+
+        # Show several x-y planes side by side
+        n_show = min(4, n_z_planes)
+        show_indices = np.linspace(0, len(z_indices) - 1, n_show, dtype=int)
+
+        for idx, i in enumerate(show_indices):
+            z_idx = z_indices[i]
+            z_pos = z_coords[i]
+            angle = angles[i]
+
+            # Director components
+            nx = np.cos(angle)
+            ny = np.sin(angle)
+
+            # Plot as arrow in subplot
+            offset = idx * 1.5
+            ax3.arrow(offset, 0, nx * 0.5, ny * 0.5,
+                     head_width=0.15, head_length=0.1,
+                     fc=plt.cm.viridis(i / len(z_indices)),
+                     ec=plt.cm.viridis(i / len(z_indices)),
+                     linewidth=2, alpha=0.8)
+            ax3.text(offset, -0.8, f'z={z_pos:.2f}',
+                    ha='center', fontsize=10)
+
+        ax3.set_xlim(-0.5, n_show * 1.5)
+        ax3.set_ylim(-1, 1)
+        ax3.set_aspect('equal')
+        ax3.set_title('Director Orientation at Different Z-Planes')
+        ax3.set_xlabel('Plane Index')
+        ax3.set_ylabel('Director Components')
+        ax3.grid(True, alpha=0.3)
+        ax3.axhline(0, color='k', linestyle='-', alpha=0.3)
+        ax3.axvline(-0.3, color='k', linestyle='-', alpha=0.3)
+
+        # Intensity pattern overlay
+        ax4 = fig.add_subplot(2, 2, 4)
+
+        im = ax4.imshow(self.intensity_data, cmap='gray', aspect='auto',
+                       extent=[0, self.params.x_size, 0, self.params.z_size],
+                       origin='lower', alpha=0.7)
+
+        # Overlay director orientations as arrows
+        for z_pos, angle in zip(z_coords, angles):
+            # Draw director orientation at center of image
+            x_center = self.params.x_size / 2
+            dx = np.cos(angle) * 0.5
+            dy = 0  # Director rotates in x-y plane, but we're viewing x-z projection
+
+            ax4.arrow(x_center, z_pos, dx, dy,
+                     head_width=0.15, head_length=0.1,
+                     fc='red', ec='red', alpha=0.8, linewidth=1.5)
+
+        ax4.set_xlabel('X position')
+        ax4.set_ylabel('Z position')
+        ax4.set_title('Intensity Pattern with Director Field Overlay')
+        plt.colorbar(im, ax=ax4, label='Intensity')
+
+        plt.tight_layout()
+        plt.suptitle('3D Director Field Visualization\n(Cholesteric Liquid Crystal)',
+                    fontsize=14, fontweight='bold', y=1.00)
+        plt.show()
+
     def _print_simulation_summary(self):
         """Print summary of simulation results"""
         print("\n" + "="*50)
         print("ENHANCED FCPM SIMULATION SUMMARY")
         print("="*50)
-        
+
         print(f"Grid Size: {self.params.n_z} × {self.params.n_x}")
         print(f"Physical Size: {self.params.z_size} × {self.params.x_size}")
         print(f"Pitch Parameter: {self.params.pitch}")
         print(f"Noise: {self.params.noise_type} ({self.params.noise_level*100:.1f}%)")
-        
+
         stats = self.metadata['statistics']
         print(f"\nIntensity Statistics:")
         print(f"  Mean: {stats['mean_intensity']:.3f}")
         print(f"  Std:  {stats['std_intensity']:.3f}")
         print(f"  Range: [{stats['min_intensity']:.3f}, {stats['max_intensity']:.3f}]")
-        
+
         if self.defect_locations:
             print(f"\nDefects Found: {len(self.defect_locations)}")
             defect_summary = {}
             for defect in self.defect_locations:
                 dtype = defect['type']
                 defect_summary[dtype] = defect_summary.get(dtype, 0) + 1
-            
+
             for dtype, count in defect_summary.items():
                 print(f"  {dtype}: {count}")
         else:
