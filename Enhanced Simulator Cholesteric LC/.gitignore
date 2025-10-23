@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Experiment outputs (keep only examples in git)
+experiments/*/
+!experiments/README.md
+!experiments/.gitkeep
+
+# Demo/test outputs (these are regenerated)
+demo_*.png
+demo_*.npz
+demo_*.npy
+test_*.png
+test_*.npz
+test_*.npy
+
+# Generated figures (from old scripts)
+fcpm_optical_simulation.png
+final_comprehensive_t3-1.png
+toron_*.png
+toron_*.npz
+toron_*.npy
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Data files (large)
+*.npy
+fcpm_intensity.npy
+enhanced_fcpm_heavy_defects_intensity.npy
+
+# Keep example configs
+!example_configs/*.json
