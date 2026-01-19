@@ -84,7 +84,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+Archive/Docs/_build/
 
 # PyBuilder
 .pybuilder/
@@ -179,4 +179,12 @@ cython_debug/
 .pdf
 *.pdf
 Docs/*.pdf
-/Docs
+
+# Archive folder (old development files, docs, images)
+Archive/
+
+# Generated output
+output/
+
+# OS files
+.DS_Store

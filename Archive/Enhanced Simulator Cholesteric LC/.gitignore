@@ -22,7 +22,7 @@ env/
 Thumbs.db
 
 # Experiment outputs (keep only examples in git)
-experiments/*/
+experiments/experiment-1_20251023_142425/
 !experiments/README.md
 !experiments/.gitkeep
 
