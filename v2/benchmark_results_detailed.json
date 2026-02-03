@@ -1,0 +1,246 @@
+{
+  "test1_scrambled": {
+    "gt_energy": 19455.999999999993,
+    "scrambled_energy": 98334.0,
+    "methods": {
+      "V2 Layer+Refine": {
+        "final_energy": 61508.0,
+        "reduction": 36826.0,
+        "reduction_pct": 46.68728923147139,
+        "angular_error": 0.0,
+        "time": 0.029154062271118164
+      },
+      "Graph Cuts": {
+        "final_energy": 19455.999999999993,
+        "reduction": 78878.0,
+        "reduction_pct": 100.0,
+        "angular_error": 0.0,
+        "time": 0.0359647274017334
+      },
+      "Hierarchical": {
+        "final_energy": 29696.0,
+        "reduction": 68638.0,
+        "reduction_pct": 87.01792641801262,
+        "angular_error": 0.0,
+        "time": 0.042025089263916016
+      },
+      "Simulated Annealing": {
+        "final_energy": 43870.0,
+        "reduction": 54464.0,
+        "reduction_pct": 69.04840386419534,
+        "angular_error": 0.0,
+        "time": 31.17124891281128
+      },
+      "Belief Propagation": {
+        "final_energy": 98334.0,
+        "reduction": 0.0,
+        "reduction_pct": 0.0,
+        "angular_error": 0.0,
+        "time": 0.0064160823822021484
+      }
+    }
+  },
+  "test2_noisy": {
+    "raw_energy": 36871.6546794637,
+    "raw_angular_error": 7.235372651701905,
+    "methods": {
+      "V2 Layer+Refine": {
+        "final_energy": 20877.34355793207,
+        "angular_error": 7.235372651701905,
+        "time": 0.003618955612182617
+      },
+      "Graph Cuts": {
+        "final_energy": 20877.34355793207,
+        "angular_error": 7.235372651701905,
+        "time": 0.03687882423400879
+      },
+      "Hierarchical": {
+        "final_energy": 31220.633789605443,
+        "angular_error": 7.235372651701905,
+        "time": 0.04260993003845215
+      },
+      "Simulated Annealing": {
+        "final_energy": 21129.337017884754,
+        "angular_error": 7.235372651701905,
+        "time": 18.06434988975525
+      },
+      "Belief Propagation": {
+        "final_energy": 36871.6546794637,
+        "angular_error": 7.235372651701905,
+        "time": 0.00661921501159668
+      }
+    }
+  },
+  "test3_noise_sensitivity": {
+    "noise_levels": [
+      0.01,
+      0.03,
+      0.05,
+      0.08,
+      0.1,
+      0.15
+    ],
+    "methods": {
+      "V2 Layer+Refine": [
+        {
+          "noise": 0.01,
+          "energy": 19804.229297009755,
+          "angular_error": 3.7168580155576496
+        },
+        {
+          "noise": 0.03,
+          "energy": 20247.12449880135,
+          "angular_error": 5.35684129269984
+        },
+        {
+          "noise": 0.05,
+          "energy": 20928.582542122916,
+          "angular_error": 7.309207175887731
+        },
+        {
+          "noise": 0.08,
+          "energy": 22043.00630221312,
+          "angular_error": 10.419979869822761
+        },
+        {
+          "noise": 0.1,
+          "energy": 23095.130635911766,
+          "angular_error": 12.274152502290317
+        },
+        {
+          "noise": 0.15,
+          "energy": 24232.8727928535,
+          "angular_error": 16.401449871715272
+        }
+      ],
+      "Graph Cuts": [
+        {
+          "noise": 0.01,
+          "energy": 19804.229297009755,
+          "angular_error": 3.7168580155576496
+        },
+        {
+          "noise": 0.03,
+          "energy": 20247.12449880135,
+          "angular_error": 5.35684129269984
+        },
+        {
+          "noise": 0.05,
+          "energy": 20928.582542122916,
+          "angular_error": 7.309207175887731
+        },
+        {
+          "noise": 0.08,
+          "energy": 23317.95304782719,
+          "angular_error": 10.419979869822761
+        },
+        {
+          "noise": 0.1,
+          "energy": 30594.992481821108,
+          "angular_error": 12.274152502290317
+        },
+        {
+          "noise": 0.15,
+          "energy": 56718.848800016436,
+          "angular_error": 16.401449871715272
+        }
+      ],
+      "Hierarchical": [
+        {
+          "noise": 0.01,
+          "energy": 30238.502812698236,
+          "angular_error": 3.7168580155576496
+        },
+        {
+          "noise": 0.03,
+          "energy": 30614.477054521674,
+          "angular_error": 5.35684129269984
+        },
+        {
+          "noise": 0.05,
+          "energy": 31244.107064927175,
+          "angular_error": 7.309207175887731
+        },
+        {
+          "noise": 0.08,
+          "energy": 32210.85091250346,
+          "angular_error": 10.419979869822761
+        },
+        {
+          "noise": 0.1,
+          "energy": 32863.051018515114,
+          "angular_error": 12.274152502290317
+        },
+        {
+          "noise": 0.15,
+          "energy": 34490.18912746253,
+          "angular_error": 16.401449871715272
+        }
+      ],
+      "Simulated Annealing": [
+        {
+          "noise": 0.01,
+          "energy": 20314.29907775821,
+          "angular_error": 3.7168580155576496
+        },
+        {
+          "noise": 0.03,
+          "energy": 20247.12449880135,
+          "angular_error": 5.35684129269984
+        },
+        {
+          "noise": 0.05,
+          "energy": 20928.582542122916,
+          "angular_error": 7.309207175887731
+        },
+        {
+          "noise": 0.08,
+          "energy": 23317.95304782719,
+          "angular_error": 10.419979869822761
+        },
+        {
+          "noise": 0.1,
+          "energy": 30594.992481821108,
+          "angular_error": 12.274152502290317
+        },
+        {
+          "noise": 0.15,
+          "energy": 57956.34439881335,
+          "angular_error": 16.401449871715272
+        }
+      ],
+      "Belief Propagation": [
+        {
+          "noise": 0.01,
+          "energy": 25316.984793817337,
+          "angular_error": 3.7168580155576496
+        },
+        {
+          "noise": 0.03,
+          "energy": 28155.456210495468,
+          "angular_error": 5.35684129269984
+        },
+        {
+          "noise": 0.05,
+          "energy": 36498.37406721801,
+          "angular_error": 7.309207175887731
+        },
+        {
+          "noise": 0.08,
+          "energy": 45898.084310052174,
+          "angular_error": 10.419979869822761
+        },
+        {
+          "noise": 0.1,
+          "energy": 49479.284828576216,
+          "angular_error": 12.274152502290317
+        },
+        {
+          "noise": 0.15,
+          "energy": 55999.24413396095,
+          "angular_error": 16.401449871715272
+        }
+      ]
+    }
+  }
+}
