@@ -191,6 +191,60 @@ def qtensor_frobenius_error(Q_recon: QTensor, Q_gt: QTensor) -> np.ndarray:
     return np.sqrt(diff_sq)
 
 
+def sign_accuracy(director_recon: DirectorField,
+                   director_gt: DirectorField) -> float:
+    """
+    Compute the fraction of voxels where the sign is correct.
+
+    A voxel has the correct sign when ``dot(n_recon, n_gt) > 0``.
+
+    Args:
+        director_recon: Reconstructed director field.
+        director_gt: Ground truth director field.
+
+    Returns:
+        Fraction in [0, 1].  1.0 means every voxel has matching sign.
+    """
+    n_recon = director_recon.to_array()
+    n_gt = director_gt.to_array()
+    dot = np.sum(n_recon * n_gt, axis=-1)
+    return float(np.mean(dot > 0))
+
+
+def spatial_error_distribution(
+    director_recon: DirectorField,
+    director_gt: DirectorField,
+) -> Dict[str, np.ndarray | float]:
+    """
+    Compute per-z-layer angular error statistics and full error map.
+
+    Args:
+        director_recon: Reconstructed director field.
+        director_gt: Ground truth director field.
+
+    Returns:
+        Dictionary with keys:
+
+        * ``error_map`` — full ``(ny, nx, nz)`` angular error array (degrees)
+        * ``layer_mean`` — ``(nz,)`` mean angular error per z-layer
+        * ``layer_median`` — ``(nz,)`` median angular error per z-layer
+        * ``layer_max`` — ``(nz,)`` max angular error per z-layer
+    """
+    ang_err = angular_error_nematic(director_recon, director_gt)
+    nz = ang_err.shape[2]
+
+    layer_mean = np.array([np.mean(ang_err[:, :, z]) for z in range(nz)])
+    layer_median = np.array([np.median(ang_err[:, :, z]) for z in range(nz)])
+    layer_max = np.array([np.max(ang_err[:, :, z]) for z in range(nz)])
+
+    return {
+        'error_map': ang_err,
+        'layer_mean': layer_mean,
+        'layer_median': layer_median,
+        'layer_max': layer_max,
+    }
+
+
 def summary_metrics(director_recon: DirectorField,
                     director_gt: DirectorField,
                     I_original: Optional[Dict[float, np.ndarray]] = None,
@@ -224,6 +278,9 @@ def summary_metrics(director_recon: DirectorField,
     euc_err = euclidean_error_nematic(director_recon, director_gt)
     metrics['euclidean_error_mean'] = float(np.mean(euc_err))
     metrics['euclidean_error_max'] = float(np.max(euc_err))
+
+    # Sign accuracy
+    metrics['sign_accuracy'] = sign_accuracy(director_recon, director_gt)
 
     # Intensity reconstruction (if available)
     if I_original is not None and I_reconstructed is not None:

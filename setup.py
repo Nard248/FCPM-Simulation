@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-FCPM - Fluorescence Confocal Polarizing Microscopy Simulation and Reconstruction
+DEPRECATED: This setup.py is kept for backward compatibility.
+Prefer pyproject.toml with:
 
-Installation:
-    pip install -e .
+    uv sync              # recommended
+    pip install -e .     # alternative (reads pyproject.toml)
 
-For development:
-    pip install -e ".[dev]"
+This file will be removed in a future release.
 """
 
 from setuptools import setup, find_packages

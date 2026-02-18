@@ -1,20 +1,32 @@
 """
-V2 Sign Optimization Module.
+DEPRECATED: V2 Sign Optimization Module.
 
-This module contains advanced sign optimization approaches for FCPM director reconstruction.
+This module is a backward-compatibility shim. All functionality has been
+moved to ``fcpm.reconstruction``.  Please update your imports::
 
-Main exports:
-- OptimizationResult: Result dataclass from sign optimization
-- layer_then_refine: V2 recommended optimization method
-- compute_gradient_energy: Energy computation utility
+    # Old (deprecated)
+    from v2 import OptimizationResult, layer_then_refine
 
-Submodules:
-- approaches: Advanced optimization algorithms (graph cuts, SA, hierarchical, BP)
+    # New (recommended)
+    from fcpm import OptimizationResult
+    from fcpm.reconstruction.optimizers import LayerPropagationOptimizer
 """
 
-from .sign_optimization_v2 import (
-    OptimizationResult,
-    compute_gradient_energy,
+import warnings as _warnings
+
+_warnings.warn(
+    "Importing from 'v2' is deprecated. "
+    "Use 'fcpm.reconstruction.optimizers' or 'fcpm' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Re-export from canonical locations
+from fcpm.reconstruction.base import OptimizationResult  # noqa: E402, F401
+from fcpm.reconstruction.energy import compute_gradient_energy  # noqa: E402, F401
+
+# Keep the original V2 function-level exports working
+from .sign_optimization_v2 import (  # noqa: E402, F401
     layer_then_refine,
     layer_by_layer_optimization,
     layer_by_layer_vectorized,

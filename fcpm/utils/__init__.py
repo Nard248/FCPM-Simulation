@@ -26,6 +26,8 @@ from .metrics import (
     qtensor_frobenius_error,
     summary_metrics,
     perfect_reconstruction_test,
+    sign_accuracy,
+    spatial_error_distribution,
 )
 
 __all__ = [
@@ -45,4 +47,6 @@ __all__ = [
     'qtensor_frobenius_error',
     'summary_metrics',
     'perfect_reconstruction_test',
+    'sign_accuracy',
+    'spatial_error_distribution',
 ]

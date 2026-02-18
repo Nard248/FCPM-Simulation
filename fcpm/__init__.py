@@ -56,7 +56,7 @@ Command Line Interface:
 Author: FCPM Simulation Team
 """
 
-__version__ = '1.1.0'
+__version__ = '2.0.0'
 __author__ = 'FCPM Simulation Team'
 
 # Core classes and functions
@@ -94,13 +94,38 @@ from .reconstruction import (
     qtensor_from_fcpm_exact,
     reconstruct_via_qtensor,
     compute_qtensor_error,
-    # Sign optimization
+    # V1 Sign optimization (backward compatible)
     chain_propagation,
     iterative_local_flip,
     wavefront_propagation,
     multi_axis_propagation,
     combined_optimization,
     gradient_energy,
+    # V2 base abstractions
+    SignOptimizer,
+    OptimizationResult,
+    compute_gradient_energy,
+    FrankConstants,
+    compute_frank_energy_anisotropic,
+    # V2 optimizer classes
+    CombinedOptimizer,
+    LayerPropagationOptimizer,
+    GraphCutsOptimizer,
+    SimulatedAnnealingOptimizer,
+    HierarchicalOptimizer,
+    BeliefPropagationOptimizer,
+    # V2 configs
+    LayerPropagationConfig,
+    GraphCutsConfig,
+    SimulatedAnnealingConfig,
+    HierarchicalConfig,
+    BeliefPropagationConfig,
+    # V2 functional interfaces
+    graph_cuts_optimization,
+    simulated_annealing_optimization,
+    hierarchical_optimization,
+    belief_propagation_optimization,
+    layer_propagation_optimization,
 )
 
 # Visualization
@@ -137,14 +162,17 @@ from .io import (
     load_director_npz,
     load_director_npy,
     load_director_mat,
+    load_director_hdf5,
     load_fcpm_npz,
     load_fcpm_tiff_stack,
     load_fcpm_mat,
     load_qtensor_npz,
     load_simulation_results,
+    load_lcsim_npz,
     # Exporters
     save_director_npz,
     save_director_npy,
+    save_director_hdf5,
     save_fcpm_npz,
     save_fcpm_tiff,
     save_qtensor_npz,
@@ -206,6 +234,8 @@ from .utils import (
     qtensor_frobenius_error,
     summary_metrics,
     perfect_reconstruction_test,
+    sign_accuracy,
+    spatial_error_distribution,
 )
 
 
@@ -278,6 +308,31 @@ __all__ = [
     'combined_optimization',
     'gradient_energy',
     'reconstruct',  # Convenience function
+    # V2 base abstractions
+    'SignOptimizer',
+    'OptimizationResult',
+    'compute_gradient_energy',
+    'FrankConstants',
+    'compute_frank_energy_anisotropic',
+    # V2 optimizer classes
+    'CombinedOptimizer',
+    'LayerPropagationOptimizer',
+    'GraphCutsOptimizer',
+    'SimulatedAnnealingOptimizer',
+    'HierarchicalOptimizer',
+    'BeliefPropagationOptimizer',
+    # V2 configs
+    'LayerPropagationConfig',
+    'GraphCutsConfig',
+    'SimulatedAnnealingConfig',
+    'HierarchicalConfig',
+    'BeliefPropagationConfig',
+    # V2 functional interfaces
+    'graph_cuts_optimization',
+    'simulated_annealing_optimization',
+    'hierarchical_optimization',
+    'belief_propagation_optimization',
+    'layer_propagation_optimization',
     # Visualization
     'plot_director_slice',
     'plot_director_streamlines',
@@ -304,13 +359,16 @@ __all__ = [
     'load_director_npz',
     'load_director_npy',
     'load_director_mat',
+    'load_director_hdf5',
     'load_fcpm_npz',
     'load_fcpm_tiff_stack',
     'load_fcpm_mat',
     'load_qtensor_npz',
     'load_simulation_results',
+    'load_lcsim_npz',
     'save_director_npz',
     'save_director_npy',
+    'save_director_hdf5',
     'save_fcpm_npz',
     'save_fcpm_tiff',
     'save_qtensor_npz',
@@ -353,6 +411,8 @@ __all__ = [
     'qtensor_frobenius_error',
     'summary_metrics',
     'perfect_reconstruction_test',
+    'sign_accuracy',
+    'spatial_error_distribution',
     # Constants
     'DTYPE',
 ]

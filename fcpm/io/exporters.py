@@ -197,6 +197,54 @@ def save_simulation_results(results: Dict[str, Any],
     return dirpath
 
 
+def save_director_hdf5(director: DirectorField,
+                       filepath: Union[str, Path],
+                       metadata: Optional[Dict[str, Any]] = None) -> Path:
+    """
+    Save director field to HDF5 format with gzip compression.
+
+    Stores nx, ny, nz as separate datasets with optional metadata
+    as HDF5 attributes.
+
+    Args:
+        director: Director field to save.
+        filepath: Output path (.h5 or .hdf5).
+        metadata: Optional metadata dictionary stored as HDF5 attributes.
+
+    Returns:
+        Path to saved file.
+
+    Note:
+        Requires h5py package: ``pip install h5py``
+    """
+    try:
+        import h5py
+    except ImportError:
+        raise ImportError("h5py required for HDF5 support. Install with: pip install h5py")
+
+    filepath = Path(filepath)
+    if filepath.suffix not in ('.h5', '.hdf5'):
+        filepath = filepath.with_suffix('.h5')
+
+    with h5py.File(str(filepath), 'w') as f:
+        f.create_dataset('nx', data=director.nx, compression='gzip')
+        f.create_dataset('ny', data=director.ny, compression='gzip')
+        f.create_dataset('nz', data=director.nz, compression='gzip')
+        f.attrs['shape'] = director.shape
+
+        all_meta = dict(director.metadata or {})
+        if metadata:
+            all_meta.update(metadata)
+
+        for key, value in all_meta.items():
+            try:
+                f.attrs[key] = value
+            except TypeError:
+                f.attrs[key] = str(value)
+
+    return filepath
+
+
 def export_for_matlab(director: DirectorField,
                       filepath: Union[str, Path]) -> Path:
     """

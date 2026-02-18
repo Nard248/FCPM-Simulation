@@ -93,6 +93,8 @@ def load_director(source: Union[str, Path, np.ndarray, Dict[str, np.ndarray]],
         return load_director_mat(filepath, **kwargs)
     elif suffix in ['.tif', '.tiff']:
         return load_director_tiff(filepath, **kwargs)
+    elif suffix in ['.h5', '.hdf5']:
+        return load_director_hdf5(filepath, **kwargs)
     else:
         # Try npz format as fallback
         try:
@@ -386,6 +388,128 @@ def load_fcpm_image_sequence(filepaths: List[Union[str, Path]],
         I_fcpm[angle] = data.astype(DTYPE)
 
     return I_fcpm
+
+
+# =============================================================================
+# HDF5 format support
+# =============================================================================
+
+def load_director_hdf5(filepath: Union[str, Path]) -> DirectorField:
+    """
+    Load director field from HDF5 file.
+
+    Expects datasets ``nx``, ``ny``, ``nz`` (as written by
+    :func:`save_director_hdf5`).
+
+    Args:
+        filepath: Path to .h5 or .hdf5 file.
+
+    Returns:
+        DirectorField loaded from file.
+
+    Note:
+        Requires h5py package.
+    """
+    try:
+        import h5py
+    except ImportError:
+        raise ImportError("h5py required for HDF5 support. Install with: pip install h5py")
+
+    filepath = Path(filepath)
+
+    with h5py.File(str(filepath), 'r') as f:
+        if 'nx' not in f or 'ny' not in f or 'nz' not in f:
+            available = list(f.keys())
+            raise ValueError(
+                f"HDF5 file must contain 'nx', 'ny', 'nz' datasets. "
+                f"Found: {available}"
+            )
+
+        nx_data = f['nx'][:]
+        ny_data = f['ny'][:]
+        nz_data = f['nz'][:]
+
+        metadata = {'source_file': str(filepath), 'format': 'hdf5'}
+        for key in f.attrs:
+            try:
+                metadata[key] = f.attrs[key]
+            except Exception:
+                pass
+
+    return DirectorField(
+        nx=nx_data.astype(DTYPE),
+        ny=ny_data.astype(DTYPE),
+        nz=nz_data.astype(DTYPE),
+        metadata=metadata,
+    )
+
+
+# =============================================================================
+# LCSim NPZ format support (article.lcpen data)
+# =============================================================================
+
+def load_lcsim_npz(filepath: Union[str, Path]) -> Tuple[DirectorField, Dict[str, Any]]:
+    """
+    Load director field from LCSim/article.lcpen NPZ format.
+
+    These files contain a ``PATH`` key with shape ``(1, sx, sy, sz, 1, 3)``
+    and an optional ``settings`` JSON string with Frank constants, pitch,
+    and film thickness.
+
+    Args:
+        filepath: Path to NPZ file.
+
+    Returns:
+        Tuple of ``(DirectorField, settings_dict)``.
+        ``settings_dict`` may be empty if no settings were found.
+    """
+    filepath = Path(filepath)
+    data = np.load(filepath, allow_pickle=False)
+
+    if 'PATH' not in data:
+        available = [k for k in data.keys() if not k.startswith('_')]
+        raise ValueError(
+            f"LCSim NPZ must contain 'PATH' key. Found: {available}"
+        )
+
+    path_data = data['PATH']
+    path_squeezed = np.squeeze(path_data)
+
+    if path_squeezed.ndim != 4 or path_squeezed.shape[-1] != 3:
+        raise ValueError(
+            f"Expected squeezed shape (sx, sy, sz, 3), got {path_squeezed.shape}"
+        )
+
+    # Parse optional settings
+    settings: Dict[str, Any] = {}
+    if 'settings' in data:
+        settings_raw = data['settings']
+        if hasattr(settings_raw, 'item'):
+            settings_raw = settings_raw.item()
+        if isinstance(settings_raw, str):
+            import json
+            try:
+                settings = json.loads(settings_raw)
+            except json.JSONDecodeError:
+                settings = {'raw': settings_raw}
+        elif isinstance(settings_raw, dict):
+            settings = settings_raw
+
+    metadata = {
+        'source_file': str(filepath),
+        'format': 'lcsim_npz',
+    }
+    if settings:
+        metadata['settings'] = settings
+
+    director = DirectorField(
+        nx=path_squeezed[..., 0].astype(DTYPE),
+        ny=path_squeezed[..., 1].astype(DTYPE),
+        nz=path_squeezed[..., 2].astype(DTYPE),
+        metadata=metadata,
+    )
+
+    return director, settings
 
 
 # =============================================================================

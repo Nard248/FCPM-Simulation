@@ -1,0 +1,71 @@
+site_name: FCPM Documentation
+site_description: Fluorescence Confocal Polarizing Microscopy — Simulation and Reconstruction
+site_url: https://your-org.github.io/FCPM-Simulation/
+repo_url: https://github.com/your-org/FCPM-Simulation
+repo_name: FCPM-Simulation
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
+            show_root_heading: true
+            heading_level: 3
+            docstring_style: google
+            show_signature_annotations: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+  - User Guide:
+      - Workflows: workflows.md
+      - Sign Optimization: sign_optimization.md
+      - Preprocessing: preprocessing.md
+      - Visualization: visualization.md
+  - API Reference:
+      - Core: api/core.md
+      - Reconstruction: api/reconstruction.md
+      - Optimizers: api/optimizers.md
+      - I/O: api/io.md
+      - Visualization: api/visualization.md
+      - Utils: api/utils.md
+  - Benchmarks: benchmarks.md
+  - References: references.md
