@@ -6,7 +6,7 @@ optimization pipeline, plus an anisotropic Frank elastic energy decomposition
 (splay, twist, bend) for detailed physical analysis.
 
 The single-constant approximation:
-    E = (K/2) * integral |grad n|^2 dV  ~  (K/2) * sum |n_i - n_j|^2
+    E = (K/2) * integral |grad n|^2 dV ~ (K/2) * sum |n_i - n_j|^2
 
 The full anisotropic Frank energy:
     f = (K1/2)(div n)^2 + (K2/2)(n . curl n + q0)^2 + (K3/2)|n x curl n|^2
