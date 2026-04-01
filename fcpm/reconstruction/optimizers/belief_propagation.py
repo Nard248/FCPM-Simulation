@@ -163,6 +163,13 @@ class BeliefPropagationOptimizer(SignOptimizer):
     # ---------- internal helpers ----------
 
     def _compute_potentials(self, n: np.ndarray) -> Dict[int, np.ndarray]:
+        """Compute sign-invariant pairwise potentials.
+
+        Uses |n_i . n_j| to compute alignment-based potentials that are
+        independent of the input sign convention:
+        - energy_aligned = 2 - 2|n_i . n_j|  (both same sign)
+        - energy_anti    = 2 + 2|n_i . n_j|  (opposite sign)
+        """
         ny, nx, nz = n.shape[:3]
         beta = self.config.beta
         potentials: Dict[int, np.ndarray] = {}
@@ -177,11 +184,13 @@ class BeliefPropagationOptimizer(SignOptimizer):
             pot = np.zeros((ny, nx, nz, 2), dtype=DTYPE)
             n_neighbor = np.roll(np.roll(np.roll(n, -dy, axis=0), -dx, axis=1), -dz, axis=2)
 
-            energy_same = np.sum((n - n_neighbor) ** 2, axis=-1)
-            energy_diff = np.sum((n + n_neighbor) ** 2, axis=-1)
+            # Sign-invariant: use absolute dot product
+            abs_dot = np.abs(np.sum(n * n_neighbor, axis=-1))
+            energy_aligned = 2.0 - 2.0 * abs_dot  # same sign → low energy
+            energy_anti = 2.0 + 2.0 * abs_dot      # opposite sign → high energy
 
-            pot[:, :, :, 0] = np.exp(-beta * energy_same)
-            pot[:, :, :, 1] = np.exp(-beta * energy_diff)
+            pot[:, :, :, 0] = np.exp(-beta * energy_aligned)
+            pot[:, :, :, 1] = np.exp(-beta * energy_anti)
             potentials[d] = pot
 
         return potentials

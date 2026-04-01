@@ -1,7 +1,8 @@
 """
 Graph Cuts Optimization for Sign Consistency.
 
-Solves the sign optimization problem exactly via min-cut/max-flow.
+Solves the sign optimization problem via min-cut/max-flow on a graph
+where edge weights encode director alignment.
 
 Mathematical Basis:
 ------------------
@@ -9,13 +10,20 @@ The sign optimization problem is a binary labeling problem on graph G = (V, E):
 - Vertices V: voxels with binary states s_i in {+1, -1}
 - Edges E: neighbor pairs with weights from director alignment
 
-Energy function:
-    E(S) = sum_{(i,j)} w_ij * [s_i != s_j]  (pairwise disagreement cost)
+For the graph-cut energy to be submodular (required for exact s-t min-cut),
+all neighbor pairs must have positive alignment (n_i . n_j > 0).  A BFS
+pre-alignment pass from the seed voxel ensures this by flipping signs to
+establish local consistency before the graph is built.
 
-where w_ij = |n_i . n_j| encodes alignment preference.
+The graph-cut energy:
+    E_GC(S) = sum_{(i,j)} 2|n_i . n_j| * [s_i != s_j]
 
-This energy is **submodular** for smooth fields, so the graph-cut solution
-is globally optimal.
+For unit vectors with positive couplings, minimising E_GC over sign
+assignments is equivalent to minimising the gradient energy
+sum |s_i n_i - s_j n_j|^2.
+
+The solution is optimal subject to the seed-voxel constraint.  A post-
+optimisation global-flip check accounts for the nematic n -> -n symmetry.
 
 Algorithm: Boykov-Kolmogorov (2004)
 Complexity: O(V * E * log(V)) ~ O(N * log(N)) for N voxels
@@ -30,6 +38,7 @@ References:
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -49,12 +58,62 @@ class GraphCutsConfig:
     edge_scale: float = 1.0
 
 
+def _bfs_pre_align(n: np.ndarray, seed: Tuple[int, int, int]) -> np.ndarray:
+    """Pre-align director signs via BFS from the seed voxel.
+
+    Ensures that for most neighbor pairs, n_i . n_j > 0, which is
+    required for the graph-cut submodularity condition.
+
+    Args:
+        n: Director array of shape (ny, nx, nz, 3), modified in-place.
+        seed: Starting voxel (y, x, z).
+
+    Returns:
+        The pre-aligned array (same object as input).
+    """
+    ny, nx, nz = n.shape[:3]
+    visited = np.zeros((ny, nx, nz), dtype=bool)
+    visited[seed] = True
+
+    queue = deque([seed])
+    neighbors_6 = [
+        (-1, 0, 0), (1, 0, 0),
+        (0, -1, 0), (0, 1, 0),
+        (0, 0, -1), (0, 0, 1),
+    ]
+
+    while queue:
+        y, x, z = queue.popleft()
+        n_i = n[y, x, z]
+
+        for dy, dx, dz in neighbors_6:
+            ny_idx, nx_idx, nz_idx = y + dy, x + dx, z + dz
+            if not (0 <= ny_idx < ny and 0 <= nx_idx < nx and 0 <= nz_idx < nz):
+                continue
+            if visited[ny_idx, nx_idx, nz_idx]:
+                continue
+
+            visited[ny_idx, nx_idx, nz_idx] = True
+
+            if np.dot(n_i, n[ny_idx, nx_idx, nz_idx]) < 0:
+                n[ny_idx, nx_idx, nz_idx] = -n[ny_idx, nx_idx, nz_idx]
+
+            queue.append((ny_idx, nx_idx, nz_idx))
+
+    return n
+
+
 class GraphCutsOptimizer(SignOptimizer):
     """
     Graph cuts optimizer using min-cut/max-flow.
 
-    Provides the globally optimal solution for the sign optimization
-    problem when the energy function is submodular (smooth director fields).
+    Finds the sign assignment that minimises the gradient energy
+    ``sum |n_i - n_j|^2`` by:
+
+    1. Pre-aligning signs via BFS from the seed (ensures submodularity)
+    2. Building a graph where edge weights = 2|n_i . n_j|
+    3. Finding the min-cut via max-flow
+    4. A global-flip check for nematic n -> -n symmetry
 
     Example::
 
@@ -92,7 +151,7 @@ class GraphCutsOptimizer(SignOptimizer):
     def _optimize_maxflow(self, director: DirectorField, verbose: bool) -> OptimizationResult:
         import maxflow
 
-        n = director.to_array().astype(DTYPE)
+        n = director.to_array().astype(DTYPE).copy()
         ny, nx, nz = n.shape[:3]
         n_voxels = ny * nx * nz
 
@@ -104,17 +163,27 @@ class GraphCutsOptimizer(SignOptimizer):
             print("=" * 60)
             print(f"Shape: {director.shape}")
             print(f"Initial energy: {initial_energy:.2f}")
+
+        seed = self.config.seed
+        if seed is None:
+            seed = (ny // 2, nx // 2, nz // 2)
+
+        # Step 1: BFS pre-alignment to ensure submodularity
+        if verbose:
+            print("Pre-aligning via BFS...")
+        _bfs_pre_align(n, seed)
+
+        energy_after_bfs = compute_gradient_energy(n)
+        if verbose:
+            print(f"  After BFS pre-align: energy = {energy_after_bfs:.2f}")
             print(f"Building graph with {n_voxels} nodes...")
 
+        # Step 2: Build graph on the pre-aligned field
         g = maxflow.Graph[float](n_voxels, n_voxels * 6)
         nodes = g.add_nodes(n_voxels)
 
         def idx(y, x, z):
             return y * nx * nz + x * nz + z
-
-        seed = self.config.seed
-        if seed is None:
-            seed = (ny // 2, nx // 2, nz // 2)
 
         seed_idx = idx(*seed)
         INF = 1e10
@@ -163,14 +232,13 @@ class GraphCutsOptimizer(SignOptimizer):
                         n_j = n[ny_idx, nx_idx, nz_idx]
 
                         dot = np.dot(n_i, n_j)
+                        # After BFS pre-alignment, most dots are positive.
+                        # Use abs(dot) to handle any remaining negative edges.
                         weight = 2.0 * abs(dot) * self.config.edge_scale
 
                         if weight > 1e-6:
                             g.add_edge(i, j, weight, weight)
                             edge_count += 1
-
-                        if dot < 0:
-                            n[ny_idx, nx_idx, nz_idx] = -n[ny_idx, nx_idx, nz_idx]
 
         if verbose:
             print(f"Graph: {n_voxels} nodes, {edge_count} edges")
@@ -181,6 +249,7 @@ class GraphCutsOptimizer(SignOptimizer):
         if verbose:
             print(f"Max flow: {flow:.2f}")
 
+        # Step 3: Apply sign assignments from the partition
         total_flips = 0
         for y in range(ny):
             for x in range(nx):
@@ -191,6 +260,13 @@ class GraphCutsOptimizer(SignOptimizer):
                         total_flips += 1
 
         final_energy = compute_gradient_energy(n)
+
+        # Step 4: Global sign check (nematic symmetry n -> -n)
+        flipped_energy = compute_gradient_energy(-n)
+        if flipped_energy < final_energy:
+            n = -n
+            final_energy = flipped_energy
+            total_flips = n_voxels - total_flips
 
         if verbose:
             print(f"\nFinal energy: {final_energy:.2f}")
@@ -218,7 +294,7 @@ class GraphCutsOptimizer(SignOptimizer):
                 "Install one: pip install PyMaxflow or pip install networkx"
             )
 
-        n = director.to_array().astype(DTYPE)
+        n = director.to_array().astype(DTYPE).copy()
         ny, nx_dim, nz = n.shape[:3]
         n_voxels = ny * nx_dim * nz
 
@@ -230,6 +306,17 @@ class GraphCutsOptimizer(SignOptimizer):
             print("=" * 60)
             print(f"Shape: {director.shape}")
             print(f"Initial energy: {initial_energy:.2f}")
+
+        seed = self.config.seed
+        if seed is None:
+            seed = (ny // 2, nx_dim // 2, nz // 2)
+
+        # Step 1: BFS pre-alignment
+        if verbose:
+            print("Pre-aligning via BFS...")
+        _bfs_pre_align(n, seed)
+
+        if verbose:
             print(f"Building graph with {n_voxels} nodes...")
 
         G = nx_graph.DiGraph()
@@ -245,11 +332,15 @@ class GraphCutsOptimizer(SignOptimizer):
         for i in range(n_voxels):
             G.add_node(i)
 
-        seed = self.config.seed
-        if seed is None:
-            seed = (ny // 2, nx_dim // 2, nz // 2)
         seed_idx = idx(*seed)
+
+        # Source -> seed with infinite capacity (fixes seed's sign)
         G.add_edge(source, seed_idx, capacity=1e10)
+
+        # All non-seed voxels -> sink with small capacity
+        for i in range(n_voxels):
+            if i != seed_idx:
+                G.add_edge(i, sink, capacity=1e-6)
 
         neighbors_6 = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
 
@@ -269,12 +360,7 @@ class GraphCutsOptimizer(SignOptimizer):
                         n_j = n[ny_idx, nx_idx, nz_idx]
 
                         dot = np.dot(n_i, n_j)
-
-                        if dot < 0:
-                            n[ny_idx, nx_idx, nz_idx] = -n[ny_idx, nx_idx, nz_idx]
-                            dot = -dot
-
-                        weight = 2.0 * dot * self.config.edge_scale
+                        weight = 2.0 * abs(dot) * self.config.edge_scale
 
                         if weight > 1e-6:
                             G.add_edge(i, j, capacity=weight)
@@ -300,6 +386,13 @@ class GraphCutsOptimizer(SignOptimizer):
                         total_flips += 1
 
         final_energy = compute_gradient_energy(n)
+
+        # Global sign check (nematic symmetry n -> -n)
+        flipped_energy = compute_gradient_energy(-n)
+        if flipped_energy < final_energy:
+            n = -n
+            final_energy = flipped_energy
+            total_flips = n_voxels - total_flips
 
         if verbose:
             print(f"\nFinal energy: {final_energy:.2f}")

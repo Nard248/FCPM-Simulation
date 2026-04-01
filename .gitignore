@@ -174,17 +174,27 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+# IDE
+.idea/
 
-.pdf
+# Claude Code / AI assistant
+.claude/
+
+# PDFs
 *.pdf
-Docs/*.pdf
 
-# Archive folder (old development files, docs, images)
+# Archive folders (old development files, docs, images)
 Archive/
+archive/
 
 # Generated output
 output/
+
+# External data repositories
+gitlab-codes/
+
+# Spreadsheets and data artifacts
+*.xlsx
 
 # OS files
 .DS_Store

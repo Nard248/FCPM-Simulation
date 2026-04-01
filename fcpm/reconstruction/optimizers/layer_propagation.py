@@ -91,6 +91,8 @@ class LayerPropagationOptimizer(SignOptimizer):
         if verbose:
             print("\nPhase 2: Iterative refinement...")
 
+        energy_before_refine = compute_gradient_energy(n)
+
         for iteration in range(self.config.max_refine_iter):
             cost_curr = np.zeros((ny_dim, nx_dim, nz_dim), dtype=DTYPE)
             cost_flip = np.zeros((ny_dim, nx_dim, nz_dim), dtype=DTYPE)
@@ -107,17 +109,29 @@ class LayerPropagationOptimizer(SignOptimizer):
             flip_mask = cost_flip < cost_curr
             n_flipped = int(np.sum(flip_mask))
 
-            if verbose and (iteration < 5 or iteration % 10 == 0):
-                energy = compute_gradient_energy(n)
-                print(f"  Iter {iteration}: flipped {n_flipped} voxels, energy = {energy:.2f}")
-
             if n_flipped == 0:
                 if verbose:
                     print(f"  Converged at iteration {iteration}")
                 break
 
+            # Save state in case simultaneous flip increases energy
+            n_backup = n.copy()
             n[flip_mask] = -n[flip_mask]
             total_flips += n_flipped
+
+            energy_after = compute_gradient_energy(n)
+            if energy_after > energy_before_refine:
+                # Revert: simultaneous flip increased energy
+                n[:] = n_backup
+                total_flips -= n_flipped
+                if verbose:
+                    print(f"  Iter {iteration}: simultaneous flip would increase energy, reverting")
+                break
+
+            energy_before_refine = energy_after
+
+            if verbose and (iteration < 5 or iteration % 10 == 0):
+                print(f"  Iter {iteration}: flipped {n_flipped} voxels, energy = {energy_after:.2f}")
 
         final_energy = compute_gradient_energy(n)
 

@@ -75,8 +75,6 @@ from .core import (
     # Simulation
     simulate_fcpm,
     simulate_fcpm_extended,
-    add_gaussian_noise,
-    add_poisson_noise,
     compute_fcpm_observables,
     # Constants
     DTYPE,

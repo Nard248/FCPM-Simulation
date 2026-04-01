@@ -129,6 +129,7 @@ class SimulatedAnnealingOptimizer(SignOptimizer):
             if (self.config.use_cluster_moves
                     and self.rng.random() < self.config.cluster_probability):
                 delta_e, n_flipped = self._cluster_move(n, T)
+                energy += delta_e
                 accepted_move = True
                 total_flips += n_flipped
             else:
@@ -162,8 +163,8 @@ class SimulatedAnnealingOptimizer(SignOptimizer):
                     T *= 0.95
                 elif accept_rate < self.config.target_accept_rate * 0.8:
                     T *= 1.05
-                accepted = max(1, accepted // 2)
-                total_attempts = max(1, total_attempts // 2)
+                accepted = 0
+                total_attempts = 0
 
             if iteration % self.config.iterations_per_temp == 0:
                 if not self.config.use_adaptive:
@@ -237,6 +238,12 @@ class SimulatedAnnealingOptimizer(SignOptimizer):
         return delta
 
     def _cluster_move(self, n: np.ndarray, T: float) -> Tuple[float, int]:
+        """Wolff cluster move for the sign-optimization Ising model.
+
+        Builds a cluster of aligned neighbors using the standard Wolff bond
+        probability p = 1 - exp(-2 * beta * J_ij) where J_ij = n_i . n_j
+        and beta = 1/T.  Flips the cluster and returns the actual energy change.
+        """
         ny, nx, nz = n.shape[:3]
         y0 = self.rng.integers(0, ny)
         x0 = self.rng.integers(0, nx)
@@ -252,6 +259,8 @@ class SimulatedAnnealingOptimizer(SignOptimizer):
             (0, 0, -1), (0, 0, 1),
         ]
 
+        beta = 1.0 / max(T, 1e-8)
+
         while frontier:
             y, x, z = frontier.pop()
             n_i = n[y, x, z]
@@ -266,17 +275,30 @@ class SimulatedAnnealingOptimizer(SignOptimizer):
                 n_j = n[ny_idx, nx_idx, nz_idx]
                 dot = np.dot(n_i, n_j)
 
+                # Standard Wolff: bond between same-sign (aligned) neighbors
                 if dot > 0:
-                    J = 2.0 * dot
-                    p_add = 1.0 - np.exp(-J / max(T, 0.01))
+                    p_add = 1.0 - np.exp(-2.0 * beta * dot)
                     if self.rng.random() < p_add:
                         cluster.add((ny_idx, nx_idx, nz_idx))
                         frontier.append((ny_idx, nx_idx, nz_idx))
 
+        # Compute energy change from flipping the cluster
+        # delta_E = sum over boundary edges (cluster member, non-member neighbor)
+        # of 4 * n_i . n_j (same formula as single-voxel flip, summed over boundary)
+        delta_e = 0.0
+        for (y, x, z) in cluster:
+            n_i = n[y, x, z]
+            for dy, dx, dz in neighbors_6:
+                ny_idx, nx_idx, nz_idx = y + dy, x + dx, z + dz
+                if not (0 <= ny_idx < ny and 0 <= nx_idx < nx and 0 <= nz_idx < nz):
+                    continue
+                if (ny_idx, nx_idx, nz_idx) not in cluster:
+                    delta_e += 4.0 * np.dot(n_i, n[ny_idx, nx_idx, nz_idx])
+
         for (y, x, z) in cluster:
             n[y, x, z] = -n[y, x, z]
 
-        return 0.0, len(cluster)
+        return delta_e, len(cluster)
 
 
 def simulated_annealing_optimization(

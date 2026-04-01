@@ -36,7 +36,8 @@ Examples:
         """
     )
 
-    parser.add_argument('--version', action='version', version='fcpm 1.0.0')
+    from fcpm import __version__
+    parser.add_argument('--version', action='version', version=f'fcpm {__version__}')
 
     subparsers = parser.add_subparsers(dest='command', help='Command to run')
 

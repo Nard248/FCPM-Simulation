@@ -401,12 +401,13 @@ class TestCLI:
 
     def test_cli_help(self):
         """Test CLI help command."""
+        import pytest
         from fcpm.cli import main
 
-        # Should not raise
-        result = main(['--help'])
-        # argparse exits with 0 on --help, we catch SystemExit
-        assert result is None or result == 0
+        # argparse --help calls sys.exit(0), which raises SystemExit
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--help'])
+        assert exc_info.value.code == 0
 
     def test_cli_info(self):
         """Test CLI info command."""

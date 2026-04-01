@@ -40,11 +40,17 @@ class CombinedOptimizer(SignOptimizer):
 
         director_opt, info = _v1_combined(director, verbose=verbose)
 
+        # Sum flips from V1 history if available
+        total_flips = 0
+        history = info.get('history', [])
+        for entry in history:
+            total_flips += entry.get('flipped', 0)
+
         return OptimizationResult(
             director=director_opt,
             initial_energy=initial_energy,
             final_energy=info.get('final_energy', compute_gradient_energy(director_opt)),
-            total_flips=0,  # V1 doesn't track this exactly
+            total_flips=total_flips,
             method='combined_v1',
             metadata={
                 'converged': info.get('converged', False),

@@ -136,7 +136,10 @@ class HierarchicalOptimizer(SignOptimizer):
                 n_optimized, metadata={'sign_method': 'hierarchical'}),
             initial_energy=initial_energy,
             final_energy=final_energy,
-            energy_by_layer=[compute_gradient_energy(p) for p in pyramid],
+            energy_by_layer=[],  # not per-z-layer; see metadata for per-level values
+            metadata={
+                'energy_by_level': [float(compute_gradient_energy(p)) for p in pyramid],
+            },
             total_flips=total_flips,
             method='hierarchical',
         )
@@ -178,7 +181,8 @@ class HierarchicalOptimizer(SignOptimizer):
                         Q_sum = np.zeros((3, 3), dtype=DTYPE)
                         for n_vec in block.reshape(-1, 3):
                             Q_sum += np.outer(n_vec, n_vec)
-                        Q_avg = Q_sum / block.size
+                        n_vectors = block.shape[0] * block.shape[1] * block.shape[2]
+                        Q_avg = Q_sum / n_vectors
 
                         eigenvalues, eigenvectors = np.linalg.eigh(Q_avg)
                         n_rep = eigenvectors[:, -1]
@@ -254,6 +258,7 @@ class HierarchicalOptimizer(SignOptimizer):
     @staticmethod
     def _iterative_refinement(n: np.ndarray, max_iter: int = 10) -> np.ndarray:
         ny, nx, nz = n.shape[:3]
+        energy_before = compute_gradient_energy(n)
 
         for _ in range(max_iter):
             cost_curr = np.zeros((ny, nx, nz), dtype=DTYPE)
@@ -272,7 +277,16 @@ class HierarchicalOptimizer(SignOptimizer):
             if np.sum(flip_mask) == 0:
                 break
 
+            # Guard: revert if simultaneous flip increases energy
+            n_backup = n.copy()
             n[flip_mask] = -n[flip_mask]
+
+            energy_after = compute_gradient_energy(n)
+            if energy_after > energy_before:
+                n[:] = n_backup
+                break
+
+            energy_before = energy_after
 
         return n
 
