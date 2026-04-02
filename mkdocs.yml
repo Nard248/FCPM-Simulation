@@ -1,7 +1,7 @@
 site_name: FCPM Documentation
 site_description: Fluorescence Confocal Polarizing Microscopy — Simulation and Reconstruction
-site_url: https://your-org.github.io/FCPM-Simulation/
-repo_url: https://github.com/your-org/FCPM-Simulation
+site_url: https://NarekMeloworksAt.github.io/FCPM-Simulation/
+repo_url: https://github.com/NarekMeloworksAt/FCPM-Simulation
 repo_name: FCPM-Simulation
 
 theme:
@@ -58,8 +58,11 @@ nav:
   - User Guide:
       - Workflows: workflows.md
       - Sign Optimization: sign_optimization.md
+      - Identifiability: identifiability.md
       - Preprocessing: preprocessing.md
       - Visualization: visualization.md
+      - Capabilities & Limitations: capabilities.md
+      - Known Failure Modes: failure_modes.md
   - API Reference:
       - Core: api/core.md
       - Reconstruction: api/reconstruction.md

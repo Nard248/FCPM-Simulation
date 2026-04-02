@@ -2,11 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] — Audit Remediation (Priority 0)
+## [Unreleased] — Audit Remediation (Priorities 0–5)
 
-Addresses the external audit (March 10, 2026) findings on correctness,
-reproducibility, and claims.  See `AUDIT_REMEDIATION_PLAN.md` for the full
-plan covering Priorities 0–5.
+Addresses the external audit (March 10, 2026) findings across all 6
+priorities.  See `AUDIT_REMEDIATION_PLAN.md` for the full plan.
 
 ### Fixed — Critical Optimizer Bugs
 
@@ -74,6 +73,71 @@ plan covering Priorities 0–5.
 - **AUDIT_REMEDIATION_PLAN.md:** Complete remediation plan mapping every audit
   item to concrete code changes with 6 priority levels and 35 action items.
 - **CHANGELOG.md:** This file, replacing the v2-only `CHANGELOG_V2.md`.
+
+### Added — Priority 1: Identifiability and Reconstruction Object
+
+- **`ReconstructionResult`** dataclass in `fcpm/reconstruction/base.py`:
+  structured return type with `observable_components`, `ambiguous_components`,
+  `confidence_map`, `ambiguity_mask`, and `info`. Supports tuple unpacking
+  for backward compatibility.
+- **`compute_confidence_map()`** in `fcpm/reconstruction/qtensor_method.py`:
+  per-voxel confidence combining in-plane magnitude and Q-tensor eigen-gap.
+- **`compute_ambiguity_mask()`**: flags voxels where |nz| > threshold
+  (nearly vertical director, numerically unstable in-plane angle).
+- **Reconstruction modes**: `reconstruct_via_qtensor()` now accepts
+  `mode='full'|'observed_Q'|'line_field'|'director'`.
+- **`docs/identifiability.md`**: design note on what FCPM can and cannot
+  recover, three identifiability regimes, and usage of diagnostics.
+
+### Added — Priority 2: Topology Generators and Metrics
+
+- **`create_disclination_director()`**: line disclination with configurable
+  topological charge (+1, -1, +0.5, -0.5). Metadata includes
+  `has_branch_cut` for half-integer charges.
+- **`create_skyrmion_director()`**: 2D baby-Skyrmion with configurable
+  radius and helicity (Neel vs Bloch).
+- **`create_toron_director()`**: approximate toron (localized double-twist
+  cylinder on cholesteric background).
+- **`energy_recovery_fraction()`**: measures what fraction of the energy gap
+  (scrambled minus ground truth) was recovered by optimization.
+- **`compute_branch_cut_map()`**: detects director discontinuities where
+  adjacent voxels have opposing signs.
+
+### Added — Priority 3: Noise Model and Sensitivity
+
+- **`fcpm/noise/` subpackage** with `NoiseModel` dataclass:
+  - `apply()`: physically motivated noise chain (shot noise, read noise,
+    dark current, background, saturation)
+  - `log_likelihood()`: approximate log-likelihood for Poisson-Gaussian model
+  - `estimate_from_data()`: estimates noise parameters from repeated
+    measurements via mean-variance linear fit
+- **`fcpm/benchmarks/` subpackage** with sensitivity analysis:
+  - `parameter_sensitivity_study()`: sweeps a parameter and measures
+    reconstruction quality at each value
+  - `SensitivityResult` dataclass for per-trial results
+
+### Added — Priority 4: Systematic Distortions
+
+- **`fcpm/distortions.py`** with 7 distortion functions:
+  - `apply_polarization_offset()`: misaligned polarizer
+  - `apply_intensity_drift()`: photobleaching / lamp drift
+  - `apply_slice_misregistration()`: sample drift between angles
+  - `apply_psf_blur()`: anisotropic optical PSF
+  - `apply_background_gradient()`: non-uniform illumination
+  - `apply_saturation()`: detector clipping
+  - `apply_bleaching()`: progressive signal loss
+
+### Added — Priority 5: UX, Documentation, API
+
+- **`docs/capabilities.md`**: honest assessment of what the library can
+  and cannot do, reliability by field type, optimizer comparison.
+- **`docs/failure_modes.md`**: catalog of 9 known failure modes with
+  symptoms, causes, diagnostics, and mitigations.
+- **`docs/identifiability.md`**: added to mkdocs navigation.
+- **API surface expanded**: surfaced `load_director_tiff`,
+  `load_fcpm_from_directory`, `load_fcpm_image_sequence`, `SAHistory`
+  at the top-level `fcpm` namespace.
+- **mkdocs.yml**: fixed placeholder URLs, added 3 new docs to navigation.
 
 ---
 

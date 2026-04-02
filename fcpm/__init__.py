@@ -45,6 +45,7 @@ Modules:
     fcpm.visualization: Visualization tools
     fcpm.io: Data loading and saving
     fcpm.preprocessing: Cropping, filtering, normalization
+    fcpm.distortions: Systematic experimental distortions
     fcpm.utils: Utilities (noise, metrics)
     fcpm.pipeline: High-level processing pipeline
 
@@ -69,6 +70,9 @@ from .core import (
     create_uniform_director,
     create_cholesteric_director,
     create_radial_director,
+    create_disclination_director,
+    create_skyrmion_director,
+    create_toron_director,
     # Q-tensor
     director_to_qtensor,
     qtensor_difference,
@@ -92,6 +96,8 @@ from .reconstruction import (
     qtensor_from_fcpm_exact,
     reconstruct_via_qtensor,
     compute_qtensor_error,
+    compute_confidence_map,
+    compute_ambiguity_mask,
     # V1 Sign optimization (backward compatible)
     chain_propagation,
     iterative_local_flip,
@@ -102,6 +108,7 @@ from .reconstruction import (
     # V2 base abstractions
     SignOptimizer,
     OptimizationResult,
+    ReconstructionResult,
     compute_gradient_energy,
     FrankConstants,
     compute_frank_energy_anisotropic,
@@ -118,6 +125,7 @@ from .reconstruction import (
     SimulatedAnnealingConfig,
     HierarchicalConfig,
     BeliefPropagationConfig,
+    SAHistory,
     # V2 functional interfaces
     graph_cuts_optimization,
     simulated_annealing_optimization,
@@ -164,6 +172,9 @@ from .io import (
     load_fcpm_npz,
     load_fcpm_tiff_stack,
     load_fcpm_mat,
+    load_director_tiff,
+    load_fcpm_from_directory,
+    load_fcpm_image_sequence,
     load_qtensor_npz,
     load_simulation_results,
     load_lcsim_npz,
@@ -214,6 +225,23 @@ from .workflows import (
     run_reconstruction,
 )
 
+# Distortions (systematic experimental artifacts)
+from .distortions import (
+    apply_polarization_offset,
+    apply_intensity_drift,
+    apply_slice_misregistration,
+    apply_psf_blur,
+    apply_background_gradient,
+    apply_saturation,
+    apply_bleaching,
+)
+
+# Noise model
+from .noise import NoiseModel
+
+# Benchmarks
+from .benchmarks import parameter_sensitivity_study
+
 # Utilities
 from .utils import (
     # Noise
@@ -234,11 +262,13 @@ from .utils import (
     perfect_reconstruction_test,
     sign_accuracy,
     spatial_error_distribution,
+    energy_recovery_fraction,
+    compute_branch_cut_map,
 )
 
 
 # Convenience function for full reconstruction pipeline
-def reconstruct(I_fcpm, fix_signs=True, verbose=False):
+def reconstruct(I_fcpm, fix_signs=True, verbose=False, mode='full'):
     """
     Complete reconstruction pipeline from FCPM to director field.
 
@@ -248,6 +278,11 @@ def reconstruct(I_fcpm, fix_signs=True, verbose=False):
         I_fcpm: Dictionary of FCPM intensities at angles [0, π/4, π/2, 3π/4].
         fix_signs: Whether to apply sign optimization for consistency.
         verbose: Print progress information.
+        mode: Reconstruction mode passed to reconstruct_via_qtensor.
+            'full' -- reconstruct full Q, extract director (default)
+            'observed_Q' -- only the 3 observable Q components (Q_xz=Q_yz=0)
+            'line_field' -- director without sign fixing (explicitly a line field)
+            'director' -- full pipeline including sign optimization
 
     Returns:
         Tuple of (DirectorField, info_dict)
@@ -255,8 +290,8 @@ def reconstruct(I_fcpm, fix_signs=True, verbose=False):
     Example:
         >>> director, info = fcpm.reconstruct(I_fcpm)
     """
-    # Q-tensor reconstruction
-    director, Q, q_info = reconstruct_via_qtensor(I_fcpm)
+    # Q-tensor reconstruction (returns ReconstructionResult, supports unpacking)
+    director, Q, q_info = reconstruct_via_qtensor(I_fcpm, mode=mode)
 
     if verbose:
         print(f"Q-tensor reconstruction complete")
@@ -281,6 +316,9 @@ __all__ = [
     'create_uniform_director',
     'create_cholesteric_director',
     'create_radial_director',
+    'create_disclination_director',
+    'create_skyrmion_director',
+    'create_toron_director',
     # Q-tensor
     'director_to_qtensor',
     'qtensor_difference',
@@ -299,6 +337,8 @@ __all__ = [
     'qtensor_from_fcpm_exact',
     'reconstruct_via_qtensor',
     'compute_qtensor_error',
+    'compute_confidence_map',
+    'compute_ambiguity_mask',
     'chain_propagation',
     'iterative_local_flip',
     'wavefront_propagation',
@@ -309,6 +349,7 @@ __all__ = [
     # V2 base abstractions
     'SignOptimizer',
     'OptimizationResult',
+    'ReconstructionResult',
     'compute_gradient_energy',
     'FrankConstants',
     'compute_frank_energy_anisotropic',
@@ -325,6 +366,7 @@ __all__ = [
     'SimulatedAnnealingConfig',
     'HierarchicalConfig',
     'BeliefPropagationConfig',
+    'SAHistory',
     # V2 functional interfaces
     'graph_cuts_optimization',
     'simulated_annealing_optimization',
@@ -361,6 +403,9 @@ __all__ = [
     'load_fcpm_npz',
     'load_fcpm_tiff_stack',
     'load_fcpm_mat',
+    'load_director_tiff',
+    'load_fcpm_from_directory',
+    'load_fcpm_image_sequence',
     'load_qtensor_npz',
     'load_simulation_results',
     'load_lcsim_npz',
@@ -411,6 +456,20 @@ __all__ = [
     'perfect_reconstruction_test',
     'sign_accuracy',
     'spatial_error_distribution',
+    'energy_recovery_fraction',
+    'compute_branch_cut_map',
+    # Distortions
+    'apply_polarization_offset',
+    'apply_intensity_drift',
+    'apply_slice_misregistration',
+    'apply_psf_blur',
+    'apply_background_gradient',
+    'apply_saturation',
+    'apply_bleaching',
+    # Noise model
+    'NoiseModel',
+    # Benchmarks
+    'parameter_sensitivity_study',
     # Constants
     'DTYPE',
 ]

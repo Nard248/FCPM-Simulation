@@ -23,6 +23,7 @@ import numpy as np
 from typing import Dict, Tuple, Optional
 from ..core.director import DirectorField, DTYPE
 from ..core.qtensor import QTensor, director_to_qtensor
+from .base import ReconstructionResult
 
 
 def qtensor_from_fcpm(I_fcpm: Dict[float, np.ndarray],
@@ -130,40 +131,103 @@ def qtensor_from_fcpm_exact(I_fcpm: Dict[float, np.ndarray],
     return Q_exact, info
 
 
+def compute_confidence_map(director: DirectorField, Q: QTensor) -> np.ndarray:
+    """Compute per-voxel reconstruction confidence in [0, 1].
+
+    Combines two signals:
+    1. In-plane magnitude: nx² + ny² (low when nz dominates -> unstable angle)
+    2. Q-tensor eigen-gap: (lambda1 - lambda2) / (lambda1 + eps) (low -> ambiguous orientation)
+
+    Returns:
+        confidence array of shape (ny, nx, nz), values in [0, 1].
+    """
+    n = director.to_array()
+    inplane_sq = n[..., 0]**2 + n[..., 1]**2  # nx² + ny²
+
+    # Eigen-gap from Q-tensor
+    Q_matrices = Q.to_matrices()  # (ny, nx, nz, 3, 3)
+    eigenvalues = np.linalg.eigvalsh(Q_matrices)  # sorted ascending
+    lambda1 = eigenvalues[..., 2]  # largest
+    lambda2 = eigenvalues[..., 1]  # second
+    eigen_gap = (lambda1 - lambda2) / (np.abs(lambda1) + 1e-10)
+
+    # Normalize eigen_gap to [0, 1]
+    eigen_gap = np.clip(eigen_gap, 0, 1)
+
+    confidence = inplane_sq * eigen_gap
+    return confidence.astype(np.float64)
+
+
+def compute_ambiguity_mask(director: DirectorField, nz_threshold: float = 0.9) -> np.ndarray:
+    """Compute boolean mask where reconstruction is fundamentally ambiguous.
+
+    A voxel is ambiguous when:
+    - |nz| > threshold (nearly vertical -> in-plane angle unstable)
+    - In-plane magnitude is too small to determine orientation
+
+    Args:
+        director: Reconstructed director field.
+        nz_threshold: |nz| above this is flagged as ambiguous.
+
+    Returns:
+        Boolean array of shape (ny, nx, nz). True = ambiguous.
+    """
+    n = director.to_array()
+    nz_abs = np.abs(n[..., 2])
+    return nz_abs > nz_threshold
+
+
 def reconstruct_via_qtensor(I_fcpm: Dict[float, np.ndarray],
                             S: float = 1.0,
-                            vectorized: bool = True) -> Tuple[DirectorField, QTensor, Dict]:
+                            vectorized: bool = True,
+                            mode: str = 'full') -> ReconstructionResult:
     """
     Full reconstruction pipeline using Q-tensor approach.
-
-    Steps:
-    1. Reconstruct Q-tensor components from FCPM
-    2. Extract director via eigendecomposition
-    3. Director has arbitrary sign (±n) at each point
-
-    Note: Sign consistency must be enforced separately using
-    the sign_optimization module.
 
     Args:
         I_fcpm: FCPM intensities.
         S: Scalar order parameter.
-        vectorized: Use vectorized eigendecomposition (faster).
+        vectorized: Use vectorized eigendecomposition.
+        mode: Reconstruction mode:
+            'full' -- reconstruct full Q, extract director (default)
+            'observed_Q' -- only the 3 observable Q components (Q_xz=Q_yz=0)
+            'line_field' -- director without sign fixing (explicitly a line field)
+            'director' -- full pipeline including sign optimization
 
     Returns:
-        Tuple of (DirectorField, QTensor, info_dict).
+        ReconstructionResult (supports tuple unpacking for backward compat).
     """
-    # Step 1: Q-tensor from FCPM
-    Q, info = qtensor_from_fcpm(I_fcpm, S)
+    # For mode='observed_Q', use the exact method
+    if mode == 'observed_Q':
+        Q, info = qtensor_from_fcpm_exact(I_fcpm, S)
+    else:
+        Q, info = qtensor_from_fcpm(I_fcpm, S)
 
-    # Step 2: Director from eigendecomposition
     if vectorized:
         director = Q.to_director_vectorized()
     else:
         director = Q.to_director()
 
     info['eigendecomposition'] = 'vectorized' if vectorized else 'loop'
+    info['mode'] = mode
 
-    return director, Q, info
+    # Sign optimization for 'director' mode
+    if mode == 'director':
+        from .sign_optimization import combined_optimization
+        director, opt_info = combined_optimization(director, verbose=False)
+        info['sign_optimization'] = opt_info
+
+    # Compute diagnostics
+    confidence = compute_confidence_map(director, Q)
+    ambiguity = compute_ambiguity_mask(director)
+
+    return ReconstructionResult(
+        director=director,
+        qtensor=Q,
+        confidence_map=confidence,
+        ambiguity_mask=ambiguity,
+        info=info,
+    )
 
 
 def compute_qtensor_error(Q_recon: QTensor, Q_gt: QTensor,

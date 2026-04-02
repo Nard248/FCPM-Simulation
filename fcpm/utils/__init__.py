@@ -28,6 +28,8 @@ from .metrics import (
     perfect_reconstruction_test,
     sign_accuracy,
     spatial_error_distribution,
+    energy_recovery_fraction,
+    compute_branch_cut_map,
 )
 
 __all__ = [
@@ -49,4 +51,6 @@ __all__ = [
     'perfect_reconstruction_test',
     'sign_accuracy',
     'spatial_error_distribution',
+    'energy_recovery_fraction',
+    'compute_branch_cut_map',
 ]

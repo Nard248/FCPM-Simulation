@@ -336,3 +336,212 @@ def create_radial_director(shape: Tuple[int, int, int],
         nx=nx, ny=ny, nz=nz,
         metadata={'type': 'radial', 'center': center}
     )
+
+
+def create_disclination_director(
+    shape: Tuple[int, int, int],
+    charge: float = 1.0,
+    axis: str = 'z',
+    center: Optional[Tuple[float, float]] = None,
+) -> DirectorField:
+    """Create a director field with a line disclination of given topological charge.
+
+    The disclination line runs along the specified axis. In the plane
+    perpendicular to the axis, the director angle varies as:
+        phi = charge * arctan2(dy, dx) + phase_offset
+
+    For charge = +1: radial/azimuthal pattern
+    For charge = -1: saddle pattern
+    For charge = +1/2 or -1/2: half-integer disclination (no smooth
+        director exists — requires branch cuts)
+
+    Args:
+        shape: (ny, nx, nz) grid dimensions.
+        charge: Topological charge. Common values: +1, -1, +0.5, -0.5.
+        axis: Direction of the disclination line ('x', 'y', or 'z').
+        center: Center of the disclination in the perpendicular plane.
+            If None, uses the grid center.
+
+    Returns:
+        DirectorField. For half-integer charges, the field will have a
+        branch cut (discontinuity) — this is topologically unavoidable.
+    """
+    ny_dim, nx_dim, nz_dim = shape
+
+    y, x, z = np.meshgrid(
+        np.arange(ny_dim, dtype=DTYPE),
+        np.arange(nx_dim, dtype=DTYPE),
+        np.arange(nz_dim, dtype=DTYPE),
+        indexing='ij',
+    )
+
+    if axis == 'z':
+        cy = center[0] if center else ny_dim / 2.0
+        cx = center[1] if center else nx_dim / 2.0
+        theta = charge * np.arctan2(y - cy, x - cx)
+        nx_arr = np.cos(theta)
+        ny_arr = np.sin(theta)
+        nz_arr = np.zeros_like(theta)
+    elif axis == 'y':
+        cx = center[0] if center else nx_dim / 2.0
+        cz = center[1] if center else nz_dim / 2.0
+        theta = charge * np.arctan2(z - cz, x - cx)
+        nx_arr = np.cos(theta)
+        ny_arr = np.zeros_like(theta)
+        nz_arr = np.sin(theta)
+    elif axis == 'x':
+        cy = center[0] if center else ny_dim / 2.0
+        cz = center[1] if center else nz_dim / 2.0
+        theta = charge * np.arctan2(z - cz, y - cy)
+        nx_arr = np.zeros_like(theta)
+        ny_arr = np.cos(theta)
+        nz_arr = np.sin(theta)
+    else:
+        raise ValueError(f"axis must be 'x', 'y', or 'z', got '{axis}'")
+
+    return DirectorField(
+        nx=nx_arr.astype(DTYPE),
+        ny=ny_arr.astype(DTYPE),
+        nz=nz_arr.astype(DTYPE),
+        metadata={
+            'type': 'disclination',
+            'charge': charge,
+            'axis': axis,
+            'center': center,
+            'has_branch_cut': abs(charge) % 1 != 0,
+        },
+    )
+
+
+def create_skyrmion_director(
+    shape: Tuple[int, int, int],
+    radius: float = 10.0,
+    helicity: float = 0.0,
+    center: Optional[Tuple[float, float]] = None,
+) -> DirectorField:
+    """Create a 2D baby-Skyrmion director field.
+
+    The director tilts from vertical (nz=1) at the center to vertical
+    (nz=-1) far away, passing through in-plane at r = radius. The
+    in-plane angle has a helicity twist.
+
+    Args:
+        shape: (ny, nx, nz) grid dimensions.
+        radius: Characteristic radius of the Skyrmion (voxels).
+        helicity: In-plane angle offset (0 = Neel, pi/2 = Bloch).
+        center: Center in the xy-plane. If None, uses grid center.
+
+    Returns:
+        DirectorField with Skyrmion structure.
+    """
+    ny_dim, nx_dim, nz_dim = shape
+    cy = center[0] if center else ny_dim / 2.0
+    cx = center[1] if center else nx_dim / 2.0
+
+    y, x, z = np.meshgrid(
+        np.arange(ny_dim, dtype=DTYPE),
+        np.arange(nx_dim, dtype=DTYPE),
+        np.arange(nz_dim, dtype=DTYPE),
+        indexing='ij',
+    )
+
+    dy = y - cy
+    dx = x - cx
+    r = np.sqrt(dx**2 + dy**2)
+    phi = np.arctan2(dy, dx)
+
+    # Tilt angle: 0 at center (nz=1), pi at r >> radius (nz=-1)
+    tilt = np.pi * (1 - np.exp(-(r / radius) ** 2))
+
+    # Director components
+    nx_arr = np.sin(tilt) * np.cos(phi + helicity)
+    ny_arr = np.sin(tilt) * np.sin(phi + helicity)
+    nz_arr = np.cos(tilt)
+
+    return DirectorField(
+        nx=nx_arr.astype(DTYPE),
+        ny=ny_arr.astype(DTYPE),
+        nz=nz_arr.astype(DTYPE),
+        metadata={
+            'type': 'skyrmion',
+            'radius': radius,
+            'helicity': helicity,
+            'center': (cy, cx),
+        },
+    )
+
+
+def create_toron_director(
+    shape: Tuple[int, int, int],
+    pitch: float = 16.0,
+    position: Optional[Tuple[float, float, float]] = None,
+) -> DirectorField:
+    """Create an approximate toron director field.
+
+    A toron is a localized structure in a cholesteric: a double-twist
+    cylinder capped by two point defects. This creates an approximate
+    version using a localized twist modulation on a cholesteric background.
+
+    Args:
+        shape: (ny, nx, nz) grid dimensions.
+        pitch: Cholesteric pitch (voxels).
+        position: Center of the toron (y, x, z). If None, uses grid center.
+
+    Returns:
+        DirectorField with toron-like structure.
+    """
+    ny_dim, nx_dim, nz_dim = shape
+    if position is None:
+        position = (ny_dim / 2.0, nx_dim / 2.0, nz_dim / 2.0)
+
+    y, x, z = np.meshgrid(
+        np.arange(ny_dim, dtype=DTYPE),
+        np.arange(nx_dim, dtype=DTYPE),
+        np.arange(nz_dim, dtype=DTYPE),
+        indexing='ij',
+    )
+
+    # Distance from toron center
+    dy = y - position[0]
+    dx = x - position[1]
+    dz = z - position[2]
+    r_xy = np.sqrt(dx**2 + dy**2)
+    r_3d = np.sqrt(dx**2 + dy**2 + dz**2)
+
+    # Background cholesteric twist
+    q0 = 2 * np.pi / pitch
+    theta_bg = q0 * z
+
+    # Localized double-twist modulation
+    # The twist angle increases toward the center
+    toron_radius = pitch / 2
+    modulation = np.exp(-(r_3d / toron_radius) ** 2)
+
+    # Double twist: in-plane angle depends on azimuthal position
+    phi_xy = np.arctan2(dy, dx)
+    theta_local = theta_bg + modulation * phi_xy
+
+    # Tilt from vertical at the toron core
+    tilt = np.pi / 2 * (1 - modulation * 0.5)
+
+    nx_arr = np.sin(tilt) * np.cos(theta_local)
+    ny_arr = np.sin(tilt) * np.sin(theta_local)
+    nz_arr = np.cos(tilt)
+
+    # Normalize
+    mag = np.sqrt(nx_arr**2 + ny_arr**2 + nz_arr**2)
+    mag = np.where(mag > 1e-10, mag, 1.0)
+    nx_arr /= mag
+    ny_arr /= mag
+    nz_arr /= mag
+
+    return DirectorField(
+        nx=nx_arr.astype(DTYPE),
+        ny=ny_arr.astype(DTYPE),
+        nz=nz_arr.astype(DTYPE),
+        metadata={
+            'type': 'toron',
+            'pitch': pitch,
+            'position': position,
+        },
+    )

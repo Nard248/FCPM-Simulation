@@ -31,6 +31,8 @@ from .qtensor_method import (
     qtensor_from_fcpm_exact,
     reconstruct_via_qtensor,
     compute_qtensor_error,
+    compute_confidence_map,
+    compute_ambiguity_mask,
 )
 
 # V1 sign optimization functions (backward compatible)
@@ -44,7 +46,7 @@ from .sign_optimization import (
 )
 
 # V2 base abstractions
-from .base import SignOptimizer, OptimizationResult
+from .base import SignOptimizer, OptimizationResult, ReconstructionResult
 from .energy import compute_gradient_energy, FrankConstants, compute_frank_energy_anisotropic
 
 # V2 optimizer classes
@@ -61,6 +63,7 @@ from .optimizers import (
     SimulatedAnnealingConfig,
     HierarchicalConfig,
     BeliefPropagationConfig,
+    SAHistory,
     # Functional interfaces
     graph_cuts_optimization,
     simulated_annealing_optimization,
@@ -81,6 +84,8 @@ __all__ = [
     'qtensor_from_fcpm_exact',
     'reconstruct_via_qtensor',
     'compute_qtensor_error',
+    'compute_confidence_map',
+    'compute_ambiguity_mask',
     # V1 sign optimization (backward compatible)
     'chain_propagation',
     'iterative_local_flip',
@@ -91,6 +96,7 @@ __all__ = [
     # V2 base abstractions
     'SignOptimizer',
     'OptimizationResult',
+    'ReconstructionResult',
     'compute_gradient_energy',
     'FrankConstants',
     'compute_frank_energy_anisotropic',

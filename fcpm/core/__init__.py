@@ -21,6 +21,9 @@ from .director import (
     create_uniform_director,
     create_cholesteric_director,
     create_radial_director,
+    create_disclination_director,
+    create_skyrmion_director,
+    create_toron_director,
     DTYPE,
 )
 
@@ -48,6 +51,9 @@ __all__ = [
     'create_uniform_director',
     'create_cholesteric_director',
     'create_radial_director',
+    'create_disclination_director',
+    'create_skyrmion_director',
+    'create_toron_director',
     # Q-tensor functions
     'director_to_qtensor',
     'qtensor_difference',

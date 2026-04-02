@@ -105,7 +105,25 @@ Six concrete `SignOptimizer` subclasses, each with a config dataclass and functi
 |------|---------|
 | `__init__.py` | Re-exports from `noise` and `metrics` |
 | `noise.py` | `add_gaussian_noise()`, `add_poisson_noise()`, `add_salt_pepper_noise()`, `add_fcpm_realistic_noise()`, `estimate_noise_level()`, `signal_to_noise_ratio()` |
-| `metrics.py` | `angular_error_nematic()` (arccos\|n1.n2\|), `angular_error_vector()`, `euclidean_error()`, `euclidean_error_nematic()`, `intensity_reconstruction_error()`, `qtensor_frobenius_error()`, `summary_metrics()`, `perfect_reconstruction_test()`, `sign_accuracy()`, `spatial_error_distribution()` |
+| `metrics.py` | `angular_error_nematic()` (arccos\|n1.n2\|), `angular_error_vector()`, `euclidean_error()`, `euclidean_error_nematic()`, `intensity_reconstruction_error()`, `qtensor_frobenius_error()`, `summary_metrics()`, `perfect_reconstruction_test()`, `sign_accuracy()`, `spatial_error_distribution()`, `energy_recovery_fraction()`, `compute_branch_cut_map()` |
+
+### `fcpm/noise/` — Noise Modeling (Priority 3)
+
+| File | Purpose |
+|------|---------|
+| `__init__.py` | Exports `NoiseModel` |
+| `model.py` | `NoiseModel` dataclass: `apply()` (shot + read + dark + background + saturation noise chain), `log_likelihood()` (Poisson-Gaussian approximate log-likelihood), `estimate_from_data()` (estimate parameters from repeated measurements) |
+
+### `fcpm/benchmarks/` — Benchmark Framework (Priority 3)
+
+| File | Purpose |
+|------|---------|
+| `__init__.py` | Exports `parameter_sensitivity_study` |
+| `sensitivity.py` | `parameter_sensitivity_study()` sweeps a parameter and measures reconstruction quality. `SensitivityResult` dataclass for per-trial results |
+
+### `fcpm/distortions.py` — Systematic Distortions (Priority 4)
+
+7 distortion functions modeling common experimental artifacts: `apply_polarization_offset()`, `apply_intensity_drift()`, `apply_slice_misregistration()`, `apply_psf_blur()`, `apply_background_gradient()`, `apply_saturation()`, `apply_bleaching()` |
 
 ### `fcpm/examples/` — Built-in Examples
 

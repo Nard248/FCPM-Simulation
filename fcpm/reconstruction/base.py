@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 from ..core.director import DirectorField
 from .energy import compute_gradient_energy
@@ -57,6 +59,35 @@ class OptimizationResult:
         return 100.0 * self.energy_reduction / self.initial_energy
 
 
+@dataclass
+class ReconstructionResult:
+    """Structured result from Q-tensor reconstruction.
+
+    Unlike a plain tuple, this explicitly records which components
+    are exactly determinable and which are ambiguous, along with
+    per-voxel confidence and ambiguity diagnostics.
+
+    The object supports tuple unpacking for backward compatibility:
+        director, Q, info = reconstruct_via_qtensor(I_fcpm)
+    """
+
+    director: DirectorField
+    qtensor: 'QTensor'
+    observable_components: List[str] = field(default_factory=lambda: ['Q_xx', 'Q_yy', 'Q_xy'])
+    ambiguous_components: List[str] = field(default_factory=lambda: ['Q_xz', 'Q_yz'])
+    confidence_map: Optional[np.ndarray] = None
+    ambiguity_mask: Optional[np.ndarray] = None
+    info: Dict[str, Any] = field(default_factory=dict)
+
+    def __iter__(self):
+        """Allow tuple unpacking: director, Q, info = result."""
+        return iter((self.director, self.qtensor, self.info))
+
+    def __getitem__(self, idx):
+        """Allow indexing: result[0] = director, result[1] = Q, result[2] = info."""
+        return (self.director, self.qtensor, self.info)[idx]
+
+
 class SignOptimizer(ABC):
     """Abstract base class for all sign-optimization strategies.
 
@@ -93,5 +124,6 @@ class SignOptimizer(ABC):
 __all__ = [
     "SignOptimizer",
     "OptimizationResult",
+    "ReconstructionResult",
     "compute_gradient_energy",
 ]

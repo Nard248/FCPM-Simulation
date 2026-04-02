@@ -327,3 +327,66 @@ def perfect_reconstruction_test(director_recon: DirectorField,
     }
 
     return is_perfect, details
+
+
+def energy_recovery_fraction(
+    director_optimized: DirectorField,
+    director_scrambled: DirectorField,
+    director_gt: DirectorField,
+) -> float:
+    """Compute the fraction of energy gap recovered by optimization.
+
+    recovery = (E_scrambled - E_optimized) / (E_scrambled - E_gt)
+
+    A value of 1.0 means the optimizer fully recovered the ground-truth
+    energy. Values > 1.0 mean the optimizer found a lower energy than
+    the ground truth (possible for non-unique sign assignments).
+
+    Args:
+        director_optimized: Director after sign optimization.
+        director_scrambled: Director before optimization (scrambled signs).
+        director_gt: Ground truth director.
+
+    Returns:
+        Recovery fraction (typically in [0, 1]).
+    """
+    from ..reconstruction.energy import compute_gradient_energy
+
+    e_gt = compute_gradient_energy(director_gt)
+    e_scr = compute_gradient_energy(director_scrambled)
+    e_opt = compute_gradient_energy(director_optimized)
+
+    gap = e_scr - e_gt
+    if abs(gap) < 1e-10:
+        return 1.0 if abs(e_opt - e_gt) < 1e-10 else 0.0
+    return float((e_scr - e_opt) / gap)
+
+
+def compute_branch_cut_map(director: DirectorField, threshold: float = 0.0) -> np.ndarray:
+    """Detect director discontinuities (branch cuts) in the field.
+
+    A branch cut is located where adjacent voxels have opposing signs:
+    dot(n_i, n_j) < -threshold.
+
+    This is expected near half-integer disclination lines and is NOT
+    a reconstruction error — it is a topological consequence.
+
+    Args:
+        director: Director field to analyze.
+        threshold: Dot product threshold below which an edge is marked
+            as a branch cut. Default 0.0 (any sign disagreement).
+
+    Returns:
+        Boolean array of shape (ny, nx, nz). True = voxel is adjacent
+        to a branch cut (has at least one neighbor with opposing sign).
+    """
+    n = director.to_array()
+    ny, nx_dim, nz = n.shape[:3]
+    branch_cut = np.zeros((ny, nx_dim, nz), dtype=bool)
+
+    for axis in range(3):
+        n_fwd = np.roll(n, -1, axis=axis)
+        dot = np.sum(n * n_fwd, axis=-1)
+        branch_cut |= (dot < -threshold)
+
+    return branch_cut
